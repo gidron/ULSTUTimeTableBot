@@ -1,0 +1,16 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+uv.lock
+.env
+.env.prod
+.env.local
+
+venv/
+.idea/
+logs/
