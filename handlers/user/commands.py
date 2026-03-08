@@ -1,5 +1,5 @@
 from aiogram import F, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, Message
 from aiogram.utils.chat_action import ChatActionSender
@@ -58,3 +58,7 @@ async def show_current_week(message: Message):
         await message.answer_photo(photo=photo, caption=caption)
 
     await message_to_delete.delete()
+
+@router.message(Command("id"))
+async def get_id(message: Message):
+    return await message.answer(str(message.from_user.id))

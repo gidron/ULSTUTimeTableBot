@@ -16,7 +16,11 @@ class CheckUserIsActiveMiddleware(BaseMiddleware):
         tg_id = event.from_user.id
         user = await User.get_or_none(tg_id=tg_id)
 
-        if event.text == "/start" or (user and user.is_active):
+        allowed_commands = [
+            "/start", "/id"
+        ]
+
+        if event.text in allowed_commands or (user and user.is_active):
             return await handler(event, data)
 
         return None
