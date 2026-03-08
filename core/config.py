@@ -13,19 +13,24 @@ class Settings(BaseSettings):
     timetable_api_url: str
     timetable_page_url: str
     current_week_api_url: str
+    autocomplete_api_url: str
 
     bot_link_text: str
-    group_name: str = "УИДбд-21"
 
     request_timeout: float = 20.0
     verify_ssl: bool = True
     font_path: str | None = None
 
+    throttle_time: float = 5.0
+
     pg_database: str
     pg_password: str
     pg_host: str
-    pg_port: str
+    pg_port: int
     pg_user: str
+
+    redis_host: str
+    redis_port: int
 
     model_config = SettingsConfigDict(
         env_file=".env",

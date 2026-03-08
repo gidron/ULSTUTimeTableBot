@@ -24,40 +24,34 @@ class TimetableParser:
 
     @staticmethod
     def pick_week(payload: dict, week_kind: str, current_week_number: int | None = None) -> tuple[str, dict]:
-        logger.debug(
-            "Выбор недели | week_kind=%s | current_week_number=%s",
-            week_kind,
-            current_week_number,
-        )
-        weeks = TimetableParser.get_weeks(payload)
+        weeks = payload.get("response", {}).get("weeks", {})
+        if not isinstance(weeks, dict) or not weeks:
+            raise TimetableParseError("В ответе API нет блока response.weeks")
+
+        sorted_keys = sorted(weeks.keys(), key=int)
 
         if week_kind == "current":
             if current_week_number is not None:
-                current_week_key = str(current_week_number)
-                for week_key, week_data in weeks:
-                    if week_key == current_week_key:
-                        logger.debug("Выбрана текущая неделя | week_key=%s", week_key)
-                        return week_key, week_data
-            logger.debug("Текущая неделя не найдена, берём первую | week_key=%s", weeks[0][0])
-            return weeks[0]
+                current_key = str(current_week_number - 1)
+                if current_key in weeks:
+                    return current_key, weeks[current_key]
+
+            first_key = sorted_keys[0]
+            return first_key, weeks[first_key]
 
         if week_kind == "next":
             if current_week_number is not None:
-                current_week_key = str(current_week_number)
-                for idx, (week_key, _) in enumerate(weeks):
-                    if week_key == current_week_key:
-                        next_index = idx + 1
-                        if next_index < len(weeks):
-                            logger.debug("Выбрана следующая неделя | week_key=%s", weeks[next_index][0])
-                            return weeks[next_index]
-                        break
-            if len(weeks) < 2:
-                logger.error("Следующая неделя отсутствует в ответе API")
-                raise TimetableParseError("Следующая неделя отсутствует в ответе API")
-            logger.debug("Текущая неделя не найдена, берём вторую | week_key=%s", weeks[1][0])
-            return weeks[1]
+                next_key = str(current_week_number)
+                if next_key in weeks:
+                    return next_key, weeks[next_key]
 
-        logger.error("Неизвестный тип недели | week_kind=%s", week_kind)
+            if len(sorted_keys) > 1:
+                second_key = sorted_keys[1]
+                return second_key, weeks[second_key]
+
+            first_key = sorted_keys[0]
+            return first_key, weeks[first_key]
+
         raise TimetableParseError(f"Неизвестный тип недели: {week_kind}")
 
     @staticmethod

@@ -5,11 +5,15 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramNetworkError
+from aiogram.fsm.storage.redis import RedisStorage
+from redis.asyncio import Redis
 
 from middlewares.throttling import ThrottlingMiddleware
+from middlewares.check_user_is_active import CheckUserIsActiveMiddleware
 from misc.routers import setup_routers
 from core.config import get_settings
 from core.logging import setup_logging
+from database.connection import init_database
 
 logger = logging.getLogger("default")
 
@@ -17,6 +21,7 @@ logger = logging.getLogger("default")
 async def main() -> None:
     setup_logging()
     settings = get_settings()
+    await init_database()
 
     logger.info("Starting bot...")
 
@@ -24,10 +29,14 @@ async def main() -> None:
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    dp = Dispatcher()
+    redis_instance = Redis(host=settings.redis_host, port=int(settings.redis_port))
+    storage = RedisStorage(redis_instance)
+    dp = Dispatcher(storage=storage)
     dp.include_router(setup_routers())
 
     dp.message.outer_middleware(ThrottlingMiddleware())
+    dp.message.outer_middleware(CheckUserIsActiveMiddleware())
+    # dp.message.middleware(LastUserActivityMiddleware())
 
     logger.info("Bot initialized successfully, starting polling")
 
