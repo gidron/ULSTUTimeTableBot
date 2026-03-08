@@ -1,12 +1,16 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+from constants.buttons_text import ButtonText as BT
+from constants.callbacks import CallbackConstants
 
-def main_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Текущая неделя", callback_data="week:current"),
-                InlineKeyboardButton(text="Следующая неделя", callback_data="week:next"),
-            ]
+
+profile_inline_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text=BT.CHANGE_GROUP,
+                callback_data=CallbackConstants.SET_GROUP_NAME
+            )
         ]
-    )
+    ]
+)

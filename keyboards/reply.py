@@ -25,3 +25,12 @@ blocked_kb = ReplyKeyboardMarkup(
     resize_keyboard=True,
     input_field_placeholder="Ваш аккаунт заблокирован"
 )
+
+cancel_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [
+            KeyboardButton(text=BT.CANCEL)
+        ]
+    ],
+    resize_keyboard=True
+)

@@ -1,11 +1,11 @@
 from aiogram import Router
 
-from .register_user_form import router as register_user_form_router
+from .set_group_name import router as set_group_name_router
 
 router = Router(name="user_state_handlers")
 
 router.include_routers(
-    register_user_form_router
+    set_group_name_router
 )
 
 __all__ = ("router", )

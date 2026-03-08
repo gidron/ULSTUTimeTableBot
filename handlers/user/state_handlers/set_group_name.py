@@ -5,14 +5,22 @@ from aiogram.utils.chat_action import ChatActionSender
 
 from database.models import User
 from keyboards.reply import main_menu_user_kb
-from misc.states import RegisterUserForm
+from misc.states import SetGroupName
+from constants.buttons_text import ButtonText as BT
 from services.network import UniversityClient
 
 
 router = Router(name="user_state_handlers_register_user_form")
 
 
-@router.message(RegisterUserForm.group_name)
+
+@router.message(SetGroupName.group_name, F.text == BT.CANCEL)
+async def cancel_input(message: Message, state: FSMContext):
+    await message.answer("Отменено", reply_markup=main_menu_user_kb)
+    await state.set_state()
+
+
+@router.message(SetGroupName.group_name, F.text)
 async def user_set_group_name(message: Message, state: FSMContext):
     user = message.from_user
     tg_id = user.id
@@ -38,6 +46,6 @@ async def user_set_group_name(message: Message, state: FSMContext):
     await state.set_state()
 
 
-@router.message(RegisterUserForm.group_name, ~F.text)
+@router.message(SetGroupName.group_name, ~F.text)
 async def invalid_user_set_group_name(message: Message):
-    await message.answer("Укажи текстом!")
+    await message.answer("Введи текст!")
