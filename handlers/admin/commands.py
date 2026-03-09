@@ -37,7 +37,19 @@ async def remove_user(message: Message, command: CommandObject):
 @router.message(IsAdminUser(), Command("list"))
 async def list_users(message: Message):
     users = await User.all().order_by("group_name")
-    formatted_text = "\n\n".join([
-        f"{user.group_name} - {user.name} - @{user.username} - {user.tg_id}" for user in users
-    ])
-    await message.answer(formatted_text)
+    text = ""
+
+    for user in users:
+        row = f"{user.group_name} - {user.name} - @{user.username} - {user.tg_id}\n"
+
+        if user.is_active:
+            row = "✔" + row
+        else:
+            row = "❌" + row
+
+        if user.is_admin:
+           row = "💀" + row
+
+        text += row
+
+    await message.answer(text)

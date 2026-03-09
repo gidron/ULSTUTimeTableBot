@@ -29,9 +29,17 @@ async def user_set_group_name(message: Message, state: FSMContext):
     async with ChatActionSender(bot=message.bot, chat_id=message.chat.id, initial_sleep=0.5):
         message_to_delete = await message.answer("Проверка корректности группы...")
 
-        if not await UniversityClient(group_name).group_exists():
-            await message.answer("Такой группы не найдено. Повторите попытку.")
-            return
+        async with UniversityClient(group_name) as client:
+            groups_autocomplete = await client.find_groups()
+
+            if group_name not in groups_autocomplete:
+                await message.answer(
+                    "Такой группы не найдено.\n"
+                    "Выбери одну из найденных групп:\n"
+                    + "\n".join(groups_autocomplete)
+                )
+                await message_to_delete.delete()
+                return
 
         await message_to_delete.delete()
 

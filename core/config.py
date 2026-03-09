@@ -1,5 +1,12 @@
+import socket
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ENV = ".env"
+hostname = socket.gethostname()
+
+if hostname != "gidron-laptop":
+    ENV = ".env.prod"
 
 
 class Settings(BaseSettings):
@@ -33,7 +40,7 @@ class Settings(BaseSettings):
     redis_port: int
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ENV,
         env_file_encoding="utf-8",
         extra="ignore",
     )

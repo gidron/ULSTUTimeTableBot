@@ -8,6 +8,7 @@ from aiogram.exceptions import TelegramNetworkError
 from aiogram.fsm.storage.redis import RedisStorage
 from redis.asyncio import Redis
 
+from middlewares.last_user_activity import LastUserActivityMiddleware
 from middlewares.throttling import ThrottlingMiddleware
 from middlewares.check_user_is_active import CheckUserIsActiveMiddleware
 from misc.routers import setup_routers
@@ -34,9 +35,9 @@ async def main() -> None:
     dp = Dispatcher(storage=storage)
     dp.include_router(setup_routers())
 
+    dp.message.middleware(LastUserActivityMiddleware())
     dp.message.outer_middleware(ThrottlingMiddleware())
     dp.message.outer_middleware(CheckUserIsActiveMiddleware())
-    # dp.message.middleware(LastUserActivityMiddleware())
 
     logger.info("Bot initialized successfully, starting polling")
 

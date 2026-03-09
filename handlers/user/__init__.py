@@ -8,7 +8,7 @@ router = Router(name="user_handlers")
 router.include_routers(
     user_callback_router,
     state_handlers_router,
-    user_commands_router
+    user_commands_router,
 )
 
 __all__ = ("router", )
