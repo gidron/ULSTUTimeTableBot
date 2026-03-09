@@ -1,6 +1,7 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from constants.buttons_text import ButtonText as BT
 
+remove_kb = ReplyKeyboardRemove()
 
 main_menu_user_kb = ReplyKeyboardMarkup(
     keyboard=[

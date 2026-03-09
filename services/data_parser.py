@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import logging
 from typing import Iterable
-
 
 logger = logging.getLogger("parser")
 
@@ -24,34 +25,50 @@ class TimetableParser:
 
     @staticmethod
     def pick_week(payload: dict, week_kind: str, current_week_number: int | None = None) -> tuple[str, dict]:
+        logger.debug(
+            "Выбор недели | week_kind=%s | current_week_number=%s",
+            week_kind,
+            current_week_number,
+        )
+
         weeks = payload.get("response", {}).get("weeks", {})
         if not isinstance(weeks, dict) or not weeks:
+            logger.error("В ответе API нет блока response.weeks")
             raise TimetableParseError("В ответе API нет блока response.weeks")
 
         sorted_keys = sorted(weeks.keys(), key=int)
+        logger.debug("Доступные ключи недель | keys=%s", sorted_keys)
 
         if week_kind == "current":
             if current_week_number is not None:
                 current_key = str(current_week_number - 1)
                 if current_key in weeks:
+                    logger.debug("Выбрана текущая неделя | key=%s", current_key)
                     return current_key, weeks[current_key]
 
             first_key = sorted_keys[0]
+            logger.debug("Текущая неделя не найдена по current_week_number, взята первая | key=%s", first_key)
             return first_key, weeks[first_key]
 
         if week_kind == "next":
-            if current_week_number is not None:
-                next_key = str(current_week_number)
-                if next_key in weeks:
-                    return next_key, weeks[next_key]
+            if current_week_number is None:
+                logger.error("Нельзя определить следующую неделю без current_week_number")
+                raise TimetableParseError("Не удалось определить следующую неделю")
 
-            if len(sorted_keys) > 1:
-                second_key = sorted_keys[1]
-                return second_key, weeks[second_key]
+            next_key = str(current_week_number)
+            if next_key in weeks:
+                logger.debug("Выбрана следующая неделя | key=%s", next_key)
+                return next_key, weeks[next_key]
 
-            first_key = sorted_keys[0]
-            return first_key, weeks[first_key]
+            logger.warning(
+                "Следующая неделя отсутствует | current_week_number=%s | expected_key=%s | available_keys=%s",
+                current_week_number,
+                next_key,
+                sorted_keys,
+            )
+            raise TimetableParseError("Следующая неделя пока отсутствует")
 
+        logger.error("Неизвестный тип недели | week_kind=%s", week_kind)
         raise TimetableParseError(f"Неизвестный тип недели: {week_kind}")
 
     @staticmethod
@@ -107,6 +124,7 @@ class TimetableParser:
             lesson = item.get("nameOfLesson", "").strip()
             teacher = item.get("teacher", "").strip()
             room = item.get("room", "").strip()
+
             line = "\n".join(part for part in [lesson, teacher, room] if part)
             if line:
                 lines.append(line)

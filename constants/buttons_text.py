@@ -9,3 +9,5 @@ class ButtonText(StrEnum):
     CHANGE_GROUP = "🛠 Изменить группу"
     DEATH = "💀"
     CANCEL = "❌ Отмена"
+    ACCEPT_USER = "✅"
+    CANCEL_USER = "❌"

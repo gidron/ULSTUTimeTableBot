@@ -34,30 +34,40 @@ LEFT_COL_WIDTH = 78
 PAIR_COL_WIDTHS = [183, 183, 183, 120, 120, 180, 122, 114]
 
 GRID_LINE = (25, 25, 25)
-BG = (235, 235, 235)
-CURRENT_DAY_BG = (210, 225, 255)
+BG = (255, 255, 255)
+CURRENT_DAY_BG = (220, 232, 250)
 TEXT = (20, 20, 20)
 
 
 class ScheduleRenderer:
     def __init__(self) -> None:
         self.settings = get_settings()
+        self.scale = 2
 
-        self.font_cell = self._load_font(11)
-        self.font_regular = self._load_font(13)
-        self.font_medium = self._load_font(15)
-        self.font_bold = self._load_font(16, bold=True)
-        self.font_left_col = self._load_font(17, bold=True)
-        self.font_title = self._load_font(17)
-        self.font_title_bold = self._load_font(18, bold=True)
+        self.font_cell = self._load_font(11 * self.scale)
+        self.font_regular = self._load_font(13 * self.scale)
+        self.font_medium = self._load_font(15 * self.scale, bold=True)
+        self.font_bold = self._load_font(16 * self.scale, bold=True)
+        self.font_left_col = self._load_font(17 * self.scale, bold=True)
+        self.font_title = self._load_font(17 * self.scale)
+        self.font_title_bold = self._load_font(18 * self.scale, bold=True)
 
-        self.cell_padding_x = 6
-        self.cell_padding_y = 5
-        self.cell_spacing = 1
+        self.cell_padding_x = 6 * self.scale
+        self.cell_padding_y = 5 * self.scale
+        self.cell_spacing = 2 * self.scale
+
+        self._canvas_width = CANVAS_WIDTH * self.scale
+        self._left_col_width = LEFT_COL_WIDTH * self.scale
+        self._pair_col_widths = [w * self.scale for w in PAIR_COL_WIDTHS]
+        self._top_header_height = TOP_HEADER_HEIGHT * self.scale
+        self._pair_row_height = PAIR_ROW_HEIGHT * self.scale
+        self._time_row_height = TIME_ROW_HEIGHT * self.scale
+        self._day_row_height = DAY_ROW_HEIGHT * self.scale
 
         logger.debug(
-            "ScheduleRenderer initialized | font_path=%s",
+            "ScheduleRenderer initialized | font_path=%s | scale=%s",
             self.settings.font_path,
+            self.scale,
         )
 
     def render(self, week_payload: dict) -> bytes:
@@ -68,16 +78,21 @@ class ScheduleRenderer:
         )
 
         rows = len(week_payload["days"])
-        height = TOP_HEADER_HEIGHT + PAIR_ROW_HEIGHT + TIME_ROW_HEIGHT + rows * DAY_ROW_HEIGHT
+        height = (
+                self._top_header_height
+                + self._pair_row_height
+                + self._time_row_height
+                + rows * self._day_row_height
+        )
 
         logger.debug(
             "Canvas parameters calculated | rows=%s | width=%s | height=%s",
             rows,
-            CANVAS_WIDTH,
+            self._canvas_width,
             height,
         )
 
-        image = Image.new("RGB", (CANVAS_WIDTH, height), BG)
+        image = Image.new("RGB", (self._canvas_width, height), BG)
         draw = ImageDraw.Draw(image)
 
         self._draw_top_header(draw, week_payload)
@@ -85,8 +100,13 @@ class ScheduleRenderer:
         self._draw_time_header(draw)
         self._draw_body(draw, week_payload)
 
+        final_image = image.resize(
+            (CANVAS_WIDTH, height // self.scale),
+            Image.Resampling.LANCZOS,
+        )
+
         buffer = BytesIO()
-        image.save(buffer, format="PNG")
+        final_image.save(buffer, format="PNG")
         buffer.seek(0)
         data = buffer.read()
 
@@ -101,8 +121,8 @@ class ScheduleRenderer:
         )
 
         y1 = 0
-        y2 = TOP_HEADER_HEIGHT
-        draw.rectangle([(0, y1), (CANVAS_WIDTH - 1, y2)], outline=GRID_LINE, width=1, fill=BG)
+        y2 = self._top_header_height
+        draw.rectangle([(0, y1), (self._canvas_width - 1, y2)], outline=GRID_LINE, width=1, fill=BG)
 
         left_label = "Расписание группы:"
         left_group = f" {week_payload['group_name']}"
@@ -110,35 +130,35 @@ class ScheduleRenderer:
         label_bbox = draw.textbbox((0, 0), left_label, font=self.font_title)
         label_w = label_bbox[2] - label_bbox[0]
 
-        draw.text((12, 10), left_label, fill=TEXT, font=self.font_title)
-        draw.text((12 + label_w, 10), left_group, fill=TEXT, font=self.font_title_bold)
+        draw.text((12 * self.scale, 10 * self.scale), left_label, fill=TEXT, font=self.font_title)
+        draw.text((12 * self.scale + label_w, 10 * self.scale), left_group, fill=TEXT, font=self.font_title_bold)
 
         center_text = self.settings.bot_link_text
         center_bbox = draw.textbbox((0, 0), center_text, font=self.font_title)
         center_w = center_bbox[2] - center_bbox[0]
-        draw.text(((CANVAS_WIDTH - center_w) / 2, 10), center_text, fill=TEXT, font=self.font_title)
+        draw.text(((self._canvas_width - center_w) / 2, 10 * self.scale), center_text, fill=TEXT, font=self.font_title)
 
         right_text = f"Неделя: {week_payload['week_number']}-я"
         right_bbox = draw.textbbox((0, 0), right_text, font=self.font_title)
         right_w = right_bbox[2] - right_bbox[0]
-        draw.text((CANVAS_WIDTH - right_w - 12, 10), right_text, fill=TEXT, font=self.font_title)
+        draw.text((self._canvas_width - right_w - 12 * self.scale, 10 * self.scale), right_text, fill=TEXT, font=self.font_title)
 
     def _draw_pair_header(self, draw: ImageDraw.ImageDraw) -> None:
         logger.debug("Drawing pair header")
-        y1 = TOP_HEADER_HEIGHT
-        y2 = y1 + PAIR_ROW_HEIGHT
+        y1 = self._top_header_height
+        y2 = y1 + self._pair_row_height
         self._draw_row_grid(draw, y1, y2, fill=BG)
 
         self._draw_centered_text(
             draw=draw,
-            box=(0, y1, LEFT_COL_WIDTH, y2),
+            box=(0, y1, self._left_col_width, y2),
             text="Пары",
             font=self.font_left_col,
         )
 
-        x = LEFT_COL_WIDTH
+        x = self._left_col_width
         for idx, name in enumerate(PAIR_HEADERS):
-            width = PAIR_COL_WIDTHS[idx]
+            width = self._pair_col_widths[idx]
             logger.debug("Drawing pair header cell | index=%s | text=%s | width=%s", idx, name, width)
             self._draw_centered_text(
                 draw=draw,
@@ -150,20 +170,20 @@ class ScheduleRenderer:
 
     def _draw_time_header(self, draw: ImageDraw.ImageDraw) -> None:
         logger.debug("Drawing time header")
-        y1 = TOP_HEADER_HEIGHT + PAIR_ROW_HEIGHT
-        y2 = y1 + TIME_ROW_HEIGHT
+        y1 = self._top_header_height + self._pair_row_height
+        y2 = y1 + self._time_row_height
         self._draw_row_grid(draw, y1, y2, fill=BG)
 
         self._draw_centered_text(
             draw=draw,
-            box=(0, y1, LEFT_COL_WIDTH, y2),
+            box=(0, y1, self._left_col_width, y2),
             text="Время",
             font=self.font_left_col,
         )
 
-        x = LEFT_COL_WIDTH
+        x = self._left_col_width
         for idx, time_label in enumerate(PAIR_TIMES):
-            width = PAIR_COL_WIDTHS[idx]
+            width = self._pair_col_widths[idx]
             logger.debug("Drawing time header cell | index=%s | text=%s | width=%s", idx, time_label, width)
             self._draw_centered_text(
                 draw=draw,
@@ -174,14 +194,14 @@ class ScheduleRenderer:
             x += width
 
     def _draw_body(self, draw: ImageDraw.ImageDraw, week_payload: dict) -> None:
-        start_y = TOP_HEADER_HEIGHT + PAIR_ROW_HEIGHT + TIME_ROW_HEIGHT
+        start_y = self._top_header_height + self._pair_row_height + self._time_row_height
         days = week_payload["days"]
 
         logger.debug("Drawing body | days_count=%s", len(days))
 
         for row_index, day_payload in enumerate(days):
-            y1 = start_y + row_index * DAY_ROW_HEIGHT
-            y2 = y1 + DAY_ROW_HEIGHT
+            y1 = start_y + row_index * self._day_row_height
+            y2 = y1 + self._day_row_height
 
             logger.debug(
                 "Drawing day row | row_index=%s | day_index=%s | date=%s | is_current_day=%s",
@@ -224,14 +244,14 @@ class ScheduleRenderer:
             sizes.append((w, h))
             total_height += h
 
-        gap = 6 if len(lines) > 1 else 0
+        gap = 6 * self.scale if len(lines) > 1 else 0
         total_height += gap * (len(lines) - 1)
 
         current_y = y1 + (y2 - y1 - total_height) / 2
 
         for (line, font), (w, h) in zip(zip(lines, fonts), sizes):
             draw.text(
-                ((LEFT_COL_WIDTH - w) / 2, current_y),
+                ((self._left_col_width - w) / 2, current_y),
                 line,
                 fill=TEXT,
                 font=font,
@@ -242,9 +262,9 @@ class ScheduleRenderer:
         slots = list(slots)
         logger.debug("Drawing slots | slots_count=%s", len(slots))
 
-        x = LEFT_COL_WIDTH
+        x = self._left_col_width
         for idx, slot_text in enumerate(slots):
-            width = PAIR_COL_WIDTHS[idx]
+            width = self._pair_col_widths[idx]
 
             if slot_text and slot_text.strip():
                 logger.debug(
@@ -342,7 +362,7 @@ class ScheduleRenderer:
         w = bbox[2] - bbox[0]
         h = bbox[3] - bbox[1]
         draw.text(
-            (x1 + (x2 - x1 - w) / 2, y1 + (y2 - y1 - h) / 2 - 1),
+            (x1 + (x2 - x1 - w) / 2, y1 + (y2 - y1 - h) / 2 - self.scale),
             text,
             fill=TEXT,
             font=font,
@@ -351,11 +371,11 @@ class ScheduleRenderer:
     def _draw_row_grid(self, draw: ImageDraw.ImageDraw, y1: int, y2: int, *, fill: tuple[int, int, int]) -> None:
         logger.debug("Drawing row grid | y1=%s | y2=%s | fill=%s", y1, y2, fill)
 
-        draw.rectangle([(0, y1), (CANVAS_WIDTH - 1, y2)], outline=GRID_LINE, width=1, fill=fill)
-        draw.line([(LEFT_COL_WIDTH, y1), (LEFT_COL_WIDTH, y2)], fill=GRID_LINE, width=1)
+        draw.rectangle([(0, y1), (self._canvas_width - 1, y2)], outline=GRID_LINE, width=1, fill=fill)
+        draw.line([(self._left_col_width, y1), (self._left_col_width, y2)], fill=GRID_LINE, width=1)
 
-        x = LEFT_COL_WIDTH
-        for width in PAIR_COL_WIDTHS[:-1]:
+        x = self._left_col_width
+        for width in self._pair_col_widths[:-1]:
             x += width
             draw.line([(x, y1), (x, y2)], fill=GRID_LINE, width=1)
 
@@ -475,8 +495,7 @@ class ScheduleRenderer:
 
     def _text_width(self, draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> int:
         bbox = draw.textbbox((0, 0), text, font=font)
-        width = bbox[2] - bbox[0]
-        return width
+        return bbox[2] - bbox[0]
 
     def _load_font(self, size: int, bold: bool = False):
         candidates = []
@@ -486,12 +505,14 @@ class ScheduleRenderer:
 
         if bold:
             candidates.extend([
+                "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
                 "C:/Windows/Fonts/arialbd.ttf",
                 "/Library/Fonts/Arial Bold.ttf",
             ])
         else:
             candidates.extend([
+                "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                 "C:/Windows/Fonts/arial.ttf",
                 "/Library/Fonts/Arial.ttf",

@@ -5,10 +5,12 @@ from aiogram.types import BufferedInputFile, Message
 from aiogram.utils.chat_action import ChatActionSender
 
 from database.models import User
+from keyboards.builders import accept_new_user_kb
 from keyboards.inline import profile_inline_kb
 from keyboards.reply import main_menu_user_kb
 from constants.buttons_text import ButtonText as BT
 from misc.states import SetGroupName
+from services.data_parser import TimetableParseError
 from services.schedule_service import ScheduleService
 
 router = Router(name="user_commands")
@@ -25,6 +27,14 @@ async def start(message: Message, state: FSMContext):
 
     if user is None:
         user = await User.create(tg_id=tg_id, name=full_name, username=username, is_active=False)
+        await message.bot.send_message(
+            chat_id=511952153,
+            text=f"Новый пользователь!\n"
+                 f"ID: `{tg_id}`\n"
+                 f"Full name: {full_name}\n"
+                 f"username: @{username}",
+            reply_markup=accept_new_user_kb(tg_id)
+        )
 
     if user.is_active and not user.group_name:
         await message.answer(f'<b>{full_name}, добро пожаловать в нашего бота!</b>\n'
@@ -53,14 +63,17 @@ async def show_current_week(message: Message):
         caption = "Следующая неделя"
 
     async with ChatActionSender(bot=message.bot, chat_id=message.chat.id, initial_sleep=0.5):
-        image_bytes, filename, week_range = await service.get_week_image(week_kind)
+        try:
+            image_bytes, filename, week_range = await service.get_week_image(week_kind)
+        except TimetableParseError:
+            await message.answer("Расписание для следующей недели пока что отсутствует")
+        else:
+            caption = (
+                f"Расписания для группы {user.group_name}\n" + caption + " " + week_range if week_range else "Расписание недели"
+            )
 
-        caption = (
-            f"Расписания для группы {user.group_name}\n" + caption + " " + week_range if week_range else "Расписание недели"
-        )
-
-        photo = BufferedInputFile(image_bytes, filename=filename)
-        await message.answer_photo(photo=photo, caption=caption)
+            photo = BufferedInputFile(image_bytes, filename=filename)
+            await message.answer_photo(photo=photo, caption=caption)
 
     await message_to_delete.delete()
 
