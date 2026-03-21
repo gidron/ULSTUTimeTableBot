@@ -31,8 +31,7 @@ async def accept_new_user(callback: CallbackQuery, callback_data: AcceptNewUserC
 
         await callback.bot.send_message(
             chat_id=tg_id,
-            text="Тебя добавили",
-            reply_markup=main_menu_user_kb
+            text="Тебя добавили. Введи /start"
         )
 
     await callback.answer("Успешно")

@@ -21,14 +21,26 @@ async def add_user(message: Message, command: CommandObject):
         await message.answer("Такой tg_id не найден!")
 
 
-@router.message(IsAdminUser(), Command("remove"))
-async def remove_user(message: Message, command: CommandObject):
+@router.message(IsAdminUser(), Command("ban"))
+async def ban_user(message: Message, command: CommandObject):
     tg_id = command.args
 
     if await User.filter(tg_id=tg_id).exists():
         user = await User.get(tg_id=tg_id)
         user.is_active = False
         await user.save()
+        await message.answer("Пользователь забанен!")
+    else:
+        await message.answer("Такой tg_id не найден!")
+
+
+@router.message(IsAdminUser(), Command("remove"))
+async def remove_user(message: Message, command: CommandObject):
+    tg_id = command.args
+
+    if await User.filter(tg_id=tg_id).exists():
+        user = await User.get(tg_id=tg_id)
+        await user.delete()
         await message.answer("Пользователь удален!")
     else:
         await message.answer("Такой tg_id не найден!")
