@@ -33,7 +33,7 @@ class LessonEntry:
 
 
 class ScheduleChangeNotifier:
-    RUN_HOURS = (8, 13, 18)
+    RUN_HOURS = (8, 13, 18, 21)
 
     async def run_forever(self, bot: Bot) -> None:
         while True:
