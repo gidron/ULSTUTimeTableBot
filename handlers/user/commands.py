@@ -79,8 +79,9 @@ async def show_current_week(message: Message):
 
 
 @router.message(F.text == BT.PROFILE)
-async def profile(message: Message, state: FSMContext):
-    await message.answer("Выбери опцию:", reply_markup=profile_inline_kb)
+async def profile(message: Message):
+    user = await User.get(tg_id=message.from_user.id)
+    await message.answer("Выбери опцию:", reply_markup=profile_inline_kb(user.notify_by_change))
 
 
 @router.message(Command("id"))
