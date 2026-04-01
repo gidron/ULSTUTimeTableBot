@@ -4,7 +4,9 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 from dataclasses import dataclass
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 from aiogram import Bot
@@ -63,8 +65,8 @@ class ScheduleChangeNotifier:
             logger.warning("Текущая неделя не найдена в payload | group=%s | week_key=%s", group_name, week_key)
             return
 
-        future_slots = self._extract_future_slots(week_data=week_data, now=now, week_number=current_week)
-        payload_hash = self._hash_payload(future_slots)
+        week_slots = self._extract_week_slots(week_data=week_data, week_number=current_week)
+        payload_hash = self._hash_payload(week_slots)
 
         snapshot = await ScheduleSnapshot.get_or_none(group_name=group_name)
         if snapshot is None:
@@ -72,17 +74,17 @@ class ScheduleChangeNotifier:
                 group_name=group_name,
                 week_number=current_week,
                 payload_hash=payload_hash,
-                payload=future_slots,
+                payload=week_slots,
             )
             logger.info("Создан baseline слепок без уведомления | group=%s", group_name)
             return
 
         old_slots = snapshot.payload if isinstance(snapshot.payload, list) else []
-        changes = self._build_changes(old_slots=old_slots, new_slots=future_slots)
+        changes = self._build_changes(old_slots=old_slots, new_slots=week_slots, now=now)
 
         snapshot.week_number = current_week
         snapshot.payload_hash = payload_hash
-        snapshot.payload = future_slots
+        snapshot.payload = week_slots
         await snapshot.save()
 
         if not changes:
@@ -118,9 +120,7 @@ class ScheduleChangeNotifier:
         hours, minutes = time_text.split(":")
         return int(hours), int(minutes)
 
-    def _extract_future_slots(self, week_data: dict, now: datetime, week_number: int) -> list[dict]:
-        today = now.date()
-        current_monday = today - timedelta(days=today.weekday())
+    def _extract_week_slots(self, week_data: dict, week_number: int) -> list[dict]:
         slots: list[dict] = []
 
         for day_payload in week_data.get("days", []):
@@ -134,19 +134,7 @@ class ScheduleChangeNotifier:
             if not isinstance(lessons, list):
                 continue
 
-            day_date = current_monday + timedelta(days=day_index)
             for slot_index, slot_entries in enumerate(lessons):
-                hour, minute = self._pair_start_time(slot_index)
-                slot_start_dt = datetime(
-                    year=day_date.year,
-                    month=day_date.month,
-                    day=day_date.day,
-                    hour=hour,
-                    minute=minute,
-                )
-                if slot_start_dt < now:
-                    continue
-
                 lessons_normalized = self._normalize_lessons(slot_entries)
                 slots.append(
                     {
@@ -168,9 +156,9 @@ class ScheduleChangeNotifier:
         for raw in slot_entries:
             if not isinstance(raw, dict):
                 continue
-            name = str(raw.get("nameOfLesson", "")).strip()
-            teacher = str(raw.get("teacher", "")).strip()
-            room = str(raw.get("room", "")).strip()
+            name = ScheduleChangeNotifier._normalize_text(raw.get("nameOfLesson", ""))
+            teacher = ScheduleChangeNotifier._normalize_text(raw.get("teacher", ""))
+            room = ScheduleChangeNotifier._normalize_text(raw.get("room", ""))
             if not name and not teacher and not room:
                 continue
             lessons.append(LessonEntry(name=name, teacher=teacher, room=room))
@@ -178,13 +166,15 @@ class ScheduleChangeNotifier:
         lessons.sort(key=lambda item: (item.name, item.teacher, item.room))
         return lessons
 
-    def _build_changes(self, old_slots: list[dict], new_slots: list[dict]) -> list[dict]:
+    def _build_changes(self, old_slots: list[dict], new_slots: list[dict], now: datetime) -> list[dict]:
         old_map = {(x["day_index"], x["slot_index"]): x for x in old_slots}
         new_map = {(x["day_index"], x["slot_index"]): x for x in new_slots}
         all_keys = sorted(set(old_map) | set(new_map))
 
         changes: list[dict] = []
         for day_index, slot_index in all_keys:
+            if not self._is_future_slot(day_index=day_index, slot_index=slot_index, now=now):
+                continue
             old_lessons = [
                 LessonEntry(**lesson) for lesson in old_map.get((day_index, slot_index), {}).get("lessons", [])
             ]
@@ -203,47 +193,92 @@ class ScheduleChangeNotifier:
         new_lessons: list[LessonEntry],
     ) -> list[dict]:
         changes: list[dict] = []
-        old_by_key = {lesson.stable_key: lesson for lesson in old_lessons}
-        new_by_key = {lesson.stable_key: lesson for lesson in new_lessons}
+        old_full = Counter((lesson.name, lesson.teacher, lesson.room) for lesson in old_lessons)
+        new_full = Counter((lesson.name, lesson.teacher, lesson.room) for lesson in new_lessons)
 
-        for stable_key, old_lesson in old_by_key.items():
-            new_lesson = new_by_key.get(stable_key)
-            if new_lesson is None:
-                changes.append(
-                    {
-                        "type": "cancelled",
-                        "day_index": day_index,
-                        "slot_index": slot_index,
-                        "lesson": old_lesson.__dict__,
-                    }
-                )
-                continue
+        removed = old_full - new_full
+        added = new_full - old_full
 
-            if old_lesson.room != new_lesson.room:
-                changes.append(
-                    {
-                        "type": "room_changed",
-                        "day_index": day_index,
-                        "slot_index": slot_index,
-                        "lesson_name": old_lesson.name,
-                        "teacher": old_lesson.teacher,
-                        "old_room": old_lesson.room,
-                        "new_room": new_lesson.room,
-                    }
-                )
+        removed_by_base: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
+        added_by_base: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
 
-        for stable_key, new_lesson in new_by_key.items():
-            if stable_key in old_by_key:
-                continue
-            changes.append(
-                {
-                    "type": "added",
-                    "day_index": day_index,
-                    "slot_index": slot_index,
-                    "lesson": new_lesson.__dict__,
-                }
-            )
+        for (name, teacher, room), count in removed.items():
+            removed_by_base[(name, teacher)][room] += count
+        for (name, teacher, room), count in added.items():
+            added_by_base[(name, teacher)][room] += count
+
+        for base_key in set(removed_by_base) & set(added_by_base):
+            name, teacher = base_key
+            removed_rooms = removed_by_base[base_key]
+            added_rooms = added_by_base[base_key]
+            for old_room, old_count in list(removed_rooms.items()):
+                if old_count <= 0:
+                    continue
+                for new_room, new_count in list(added_rooms.items()):
+                    if new_count <= 0 or old_room == new_room:
+                        continue
+                    match_count = min(old_count, new_count)
+                    for _ in range(match_count):
+                        changes.append(
+                            {
+                                "type": "room_changed",
+                                "day_index": day_index,
+                                "slot_index": slot_index,
+                                "lesson_name": name,
+                                "teacher": teacher,
+                                "old_room": old_room,
+                                "new_room": new_room,
+                            }
+                        )
+                    removed_rooms[old_room] -= match_count
+                    added_rooms[new_room] -= match_count
+                    old_count -= match_count
+                    if old_count <= 0:
+                        break
+
+        for (name, teacher), rooms_counter in removed_by_base.items():
+            for room, count in rooms_counter.items():
+                for _ in range(max(0, count)):
+                    changes.append(
+                        {
+                            "type": "cancelled",
+                            "day_index": day_index,
+                            "slot_index": slot_index,
+                            "lesson": {"name": name, "teacher": teacher, "room": room},
+                        }
+                    )
+
+        for (name, teacher), rooms_counter in added_by_base.items():
+            for room, count in rooms_counter.items():
+                for _ in range(max(0, count)):
+                    changes.append(
+                        {
+                            "type": "added",
+                            "day_index": day_index,
+                            "slot_index": slot_index,
+                            "lesson": {"name": name, "teacher": teacher, "room": room},
+                        }
+                    )
         return changes
+
+    @staticmethod
+    def _normalize_text(value: object) -> str:
+        text = str(value or "").strip().lower()
+        return re.sub(r"\s+", " ", text)
+
+    def _is_future_slot(self, day_index: int, slot_index: int, now: datetime) -> bool:
+        today = now.date()
+        current_monday = today - timedelta(days=today.weekday())
+        day_date = current_monday + timedelta(days=day_index)
+        hour, minute = self._pair_start_time(slot_index)
+        slot_start_dt = datetime(
+            year=day_date.year,
+            month=day_date.month,
+            day=day_date.day,
+            hour=hour,
+            minute=minute,
+        )
+        return slot_start_dt >= now
 
     async def _notify_group_users(self, bot: Bot, group_name: str, changes: list[dict]) -> None:
         users = await User.filter(
