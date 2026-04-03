@@ -17,6 +17,7 @@ from database.models import (
     ScheduleSnapshot,
     User,
 )
+from services.data_parser import TimetableParseError, TimetableParser
 from services.image_renderer import PAIR_TIMES, WEEKDAY_NAMES
 from services.network import UniversityClient
 
@@ -59,14 +60,12 @@ class ScheduleChangeNotifier:
         async with UniversityClient(group_name=group_name) as client:
             current_week, payload = await client.get_current_week_and_timetable()
 
-        week_key = str(current_week - 1)
-        week_data = payload.get("response", {}).get("weeks", {}).get(week_key)
-        if not isinstance(week_data, dict):
-            logger.warning("Текущая неделя не найдена в payload | group=%s | week_key=%s", group_name, week_key)
+        two_week_slots = self._build_two_week_slots(payload=payload, api_current_week=current_week)
+        if not two_week_slots:
+            logger.warning("Не удалось собрать слепок расписания | group=%s", group_name)
             return
 
-        week_slots = self._extract_week_slots(week_data=week_data, week_number=current_week)
-        payload_hash = self._hash_payload(week_slots)
+        payload_hash = self._hash_payload(two_week_slots)
 
         snapshot = await ScheduleSnapshot.get_or_none(group_name=group_name)
         if snapshot is None:
@@ -74,17 +73,22 @@ class ScheduleChangeNotifier:
                 group_name=group_name,
                 week_number=current_week,
                 payload_hash=payload_hash,
-                payload=week_slots,
+                payload=two_week_slots,
             )
             logger.info("Создан baseline слепок без уведомления | group=%s", group_name)
             return
 
         old_slots = snapshot.payload if isinstance(snapshot.payload, list) else []
-        changes = self._build_changes(old_slots=old_slots, new_slots=week_slots, now=now)
+        changes = self._build_changes(
+            old_slots=old_slots,
+            new_slots=two_week_slots,
+            now=now,
+            api_current_week=current_week,
+        )
 
         snapshot.week_number = current_week
         snapshot.payload_hash = payload_hash
-        snapshot.payload = week_slots
+        snapshot.payload = two_week_slots
         await snapshot.save()
 
         if not changes:
@@ -111,6 +115,32 @@ class ScheduleChangeNotifier:
     def _hash_payload(payload: object) -> str:
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
+
+    def _build_two_week_slots(self, payload: dict, api_current_week: int) -> list[dict]:
+        """Текущая + следующая неделя в одном слепке (стабильный хеш, без ложных diff при смене окна)."""
+        try:
+            cur_key, cur_data = TimetableParser.pick_week(payload, "current", api_current_week)
+        except TimetableParseError:
+            logger.warning("pick_week(current) не удался | api_current_week=%s", api_current_week)
+            return []
+
+        display_current = int(cur_key) + 1
+        slots = self._extract_week_slots(week_data=cur_data, week_number=display_current)
+
+        try:
+            nxt_key, nxt_data = TimetableParser.pick_week(payload, "next", api_current_week)
+        except TimetableParseError:
+            logger.info("Следующая неделя недоступна, слепок только по текущей | display_week=%s", display_current)
+            return self._sort_slots_for_hash(slots)
+
+        display_next = int(nxt_key) + 1
+        slots.extend(self._extract_week_slots(week_data=nxt_data, week_number=display_next))
+
+        return self._sort_slots_for_hash(slots)
+
+    @staticmethod
+    def _sort_slots_for_hash(slots: list[dict]) -> list[dict]:
+        return sorted(slots, key=lambda s: (s["week_number"], s["day_index"], s["slot_index"]))
 
     @staticmethod
     def _pair_start_time(slot_index: int) -> tuple[int, int]:
@@ -166,27 +196,71 @@ class ScheduleChangeNotifier:
         lessons.sort(key=lambda item: (item.name, item.teacher, item.room))
         return lessons
 
-    def _build_changes(self, old_slots: list[dict], new_slots: list[dict], now: datetime) -> list[dict]:
-        old_map = {(x["day_index"], x["slot_index"]): x for x in old_slots}
-        new_map = {(x["day_index"], x["slot_index"]): x for x in new_slots}
-        all_keys = sorted(set(old_map) | set(new_map))
+    def _build_changes(
+        self,
+        old_slots: list[dict],
+        new_slots: list[dict],
+        now: datetime,
+        api_current_week: int,
+    ) -> list[dict]:
+        old_norm = self._normalize_slot_list(old_slots, api_current_week)
+        new_norm = self._normalize_slot_list(new_slots, api_current_week)
 
+        old_weeks = {s["week_number"] for s in old_norm}
+        new_weeks = {s["week_number"] for s in new_norm}
+        common_weeks = old_weeks & new_weeks
+
+        old_map = {(s["week_number"], s["day_index"], s["slot_index"]): s for s in old_norm}
+        new_map = {(s["week_number"], s["day_index"], s["slot_index"]): s for s in new_norm}
+
+        all_keys = sorted(set(old_map) | set(new_map))
         changes: list[dict] = []
-        for day_index, slot_index in all_keys:
-            if not self._is_future_slot(day_index=day_index, slot_index=slot_index, now=now):
+        for week_number, day_index, slot_index in all_keys:
+            if week_number not in common_weeks:
+                continue
+            if not self._should_notify_slot(
+                week_number=week_number,
+                day_index=day_index,
+                slot_index=slot_index,
+                now=now,
+                api_current_week=api_current_week,
+            ):
                 continue
             old_lessons = [
-                LessonEntry(**lesson) for lesson in old_map.get((day_index, slot_index), {}).get("lessons", [])
+                LessonEntry(**lesson)
+                for lesson in old_map.get((week_number, day_index, slot_index), {}).get("lessons", [])
             ]
             new_lessons = [
-                LessonEntry(**lesson) for lesson in new_map.get((day_index, slot_index), {}).get("lessons", [])
+                LessonEntry(**lesson)
+                for lesson in new_map.get((week_number, day_index, slot_index), {}).get("lessons", [])
             ]
-            changes.extend(self._compare_slot(day_index, slot_index, old_lessons, new_lessons))
+            changes.extend(
+                self._compare_slot(week_number, day_index, slot_index, old_lessons, new_lessons)
+            )
 
         return changes
 
     @staticmethod
+    def _normalize_slot_list(slots: list[dict], api_current_week: int) -> list[dict]:
+        """Старые слепки без week_number считаем текущей неделей API."""
+        out: list[dict] = []
+        for s in slots:
+            if not isinstance(s, dict):
+                continue
+            wn = s.get("week_number", api_current_week)
+            if not isinstance(wn, int):
+                try:
+                    wn = int(wn)
+                except (TypeError, ValueError):
+                    wn = api_current_week
+            row = dict(s)
+            row["week_number"] = wn
+            out.append(row)
+        return out
+
+    @staticmethod
     def _compare_slot(
+        week_number: int,
         day_index: int,
         slot_index: int,
         old_lessons: list[LessonEntry],
@@ -222,6 +296,7 @@ class ScheduleChangeNotifier:
                         changes.append(
                             {
                                 "type": "room_changed",
+                                "week_number": week_number,
                                 "day_index": day_index,
                                 "slot_index": slot_index,
                                 "lesson_name": name,
@@ -242,6 +317,7 @@ class ScheduleChangeNotifier:
                     changes.append(
                         {
                             "type": "cancelled",
+                            "week_number": week_number,
                             "day_index": day_index,
                             "slot_index": slot_index,
                             "lesson": {"name": name, "teacher": teacher, "room": room},
@@ -254,6 +330,7 @@ class ScheduleChangeNotifier:
                     changes.append(
                         {
                             "type": "added",
+                            "week_number": week_number,
                             "day_index": day_index,
                             "slot_index": slot_index,
                             "lesson": {"name": name, "teacher": teacher, "room": room},
@@ -266,7 +343,19 @@ class ScheduleChangeNotifier:
         text = str(value or "").strip().lower()
         return re.sub(r"\s+", " ", text)
 
-    def _is_future_slot(self, day_index: int, slot_index: int, now: datetime) -> bool:
+    def _should_notify_slot(
+        self,
+        week_number: int,
+        day_index: int,
+        slot_index: int,
+        now: datetime,
+        api_current_week: int,
+    ) -> bool:
+        """Текущая неделя: только будущие пары. Следующая календарная неделя: все пары."""
+        if week_number == api_current_week + 1:
+            return True
+        if week_number != api_current_week:
+            return False
         today = now.date()
         current_monday = today - timedelta(days=today.weekday())
         day_date = current_monday + timedelta(days=day_index)
@@ -299,6 +388,10 @@ class ScheduleChangeNotifier:
     def _render_message(group_name: str, changes: list[dict]) -> str:
         lines = [f"Изменения в расписании ({group_name}):", ""]
         for change in changes:
+            week_label = ""
+            wn = change.get("week_number")
+            if isinstance(wn, int):
+                week_label = f"нед. {wn}, "
             day_name = WEEKDAY_NAMES[change["day_index"]]
             pair_number = change["slot_index"] + 1
             pair_time = PAIR_TIMES[change["slot_index"]] if change["slot_index"] < len(PAIR_TIMES) else ""
@@ -306,7 +399,7 @@ class ScheduleChangeNotifier:
             if change["type"] == "cancelled":
                 lesson = change["lesson"]
                 lines.append(
-                    f"• {day_name}, {pair_number}-я пара ({pair_time}) — отмена: "
+                    f"• {week_label}{day_name}, {pair_number}-я пара ({pair_time}) — отмена: "
                     f"{lesson.get('name', 'Без названия')} | {lesson.get('teacher', 'Преподаватель не указан')}"
                 )
                 continue
@@ -314,7 +407,7 @@ class ScheduleChangeNotifier:
             if change["type"] == "added":
                 lesson = change["lesson"]
                 lines.append(
-                    f"• {day_name}, {pair_number}-я пара ({pair_time}) — добавлена пара: "
+                    f"• {week_label}{day_name}, {pair_number}-я пара ({pair_time}) — добавлена пара: "
                     f"{lesson.get('name', 'Без названия')} | "
                     f"{lesson.get('teacher', 'Преподаватель не указан')} | "
                     f"ауд. {lesson.get('room', '—')}"
@@ -322,7 +415,7 @@ class ScheduleChangeNotifier:
                 continue
 
             lines.append(
-                f"• {day_name}, {pair_number}-я пара ({pair_time}) — аудитория изменена: "
+                f"• {week_label}{day_name}, {pair_number}-я пара ({pair_time}) — аудитория изменена: "
                 f"{change.get('lesson_name', 'Без названия')}, "
                 f"{change.get('teacher', 'Преподаватель не указан')} "
                 f"({change.get('old_room', '—')} -> {change.get('new_room', '—')})"
