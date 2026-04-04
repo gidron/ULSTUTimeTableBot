@@ -52,7 +52,7 @@ async def list_users(message: Message):
     text = ""
 
     for user in users:
-        row = f"{user.group_name} - {user.name} - @{user.username} - `{user.tg_id}`\n"
+        row = f"{user.group_name} - {user.name} - @{user.username} - <code>{user.tg_id}</code>\n"
 
         if user.is_active:
             row = "✔" + row

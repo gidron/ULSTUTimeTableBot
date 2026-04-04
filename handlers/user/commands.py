@@ -4,13 +4,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, Message
 from aiogram.utils.chat_action import ChatActionSender
 
-from database.models import User
+from database.models import User, ScheduleSnapshot, ScheduleChangeDigest
 from keyboards.builders import accept_new_user_kb
 from keyboards.inline import profile_inline_kb
 from keyboards.reply import main_menu_user_kb
 from constants.buttons_text import ButtonText as BT
 from misc.states import SetGroupName
 from services.data_parser import TimetableParseError
+from services.schedule_change_notifier import ScheduleChangeNotifier
 from services.schedule_service import ScheduleService
 
 router = Router(name="user_commands")
@@ -30,7 +31,7 @@ async def start(message: Message, state: FSMContext):
         await message.bot.send_message(
             chat_id=511952153,
             text=f"Новый пользователь!\n"
-                 f"ID: `{tg_id}`\n"
+                 f"ID: <code>{tg_id}</code>\n"
                  f"Full name: {full_name}\n"
                  f"username: @{username}",
             reply_markup=accept_new_user_kb(tg_id)
@@ -46,14 +47,13 @@ async def start(message: Message, state: FSMContext):
         await message.answer(f"С возвращением, <b>{full_name}</b>!", reply_markup=main_menu_user_kb)
 
 
-@router.message(F.text == BT.CURRENT_WEEK)
-@router.message(F.text == BT.NEXT_WEEK)
+@router.message(F.text.in_([BT.CURRENT_WEEK, BT.NEXT_WEEK]))
 async def show_current_week(message: Message):
     tg_id = message.from_user.id
     user = await User.get(tg_id=tg_id)
 
     service = ScheduleService(user.group_name)
-    message_to_delete = await message.answer("Твой запрос обрабатывается...")
+    message_to_delete = await message.answer("⏳ Расписание генерируется...")
 
     if message.text == BT.CURRENT_WEEK:
         week_kind = "current"
@@ -66,10 +66,13 @@ async def show_current_week(message: Message):
         try:
             image_bytes, filename, week_range = await service.get_week_image(week_kind)
         except TimetableParseError:
-            await message.answer("Расписание для следующей недели пока что отсутствует")
+            await message.answer("Расписание для указанной недели пока что отсутствует.\n"
+                                 "Попробуй позднее еще раз.")
         else:
             caption = (
-                f"Расписания для группы {user.group_name}\n" + caption + " " + week_range if week_range else "Расписание недели"
+                f"📚 Расписания для группы <b>{user.group_name}</b>\n" +
+                "🕰️ " + caption + " " +
+                f"<b>{week_range}</b>" if week_range else "Расписание недели"
             )
 
             photo = BufferedInputFile(image_bytes, filename=filename)
@@ -87,3 +90,36 @@ async def profile(message: Message):
 @router.message(Command("id"))
 async def get_id(message: Message):
     return await message.answer(str(message.from_user.id))
+
+
+@router.message(Command("test_notify_run"))
+async def test_notify_run(message: Message):
+    user = await User.get_or_none(tg_id=message.from_user.id)
+    if user is None or not user.is_admin:
+        await message.answer("Команда доступна только администратору.")
+        return
+
+    await message.answer("Запускаю проверку уведомлений вручную...")
+    notifier = ScheduleChangeNotifier()
+    await notifier.check_and_notify(message.bot)
+    await message.answer("Проверка завершена.")
+
+
+@router.message(Command("test_notify_reset"))
+async def test_notify_reset(message: Message):
+    user = await User.get_or_none(tg_id=message.from_user.id)
+    if user is None or not user.is_admin:
+        await message.answer("Команда доступна только администратору.")
+        return
+
+    if not user.group_name:
+        await message.answer("У вас не указана группа.")
+        return
+
+    deleted_snapshot = await ScheduleSnapshot.filter(group_name=user.group_name).delete()
+    deleted_digests = await ScheduleChangeDigest.filter(group_name=user.group_name).delete()
+    await message.answer(
+        f"Сброс выполнен для группы {user.group_name}:\n"
+        f"- snapshot: {deleted_snapshot}\n"
+        f"- digests: {deleted_digests}"
+    )

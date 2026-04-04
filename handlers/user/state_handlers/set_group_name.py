@@ -64,7 +64,7 @@ async def user_set_group_name(message: Message, state: FSMContext):
         return
 
     async with ChatActionSender(bot=message.bot, chat_id=message.chat.id, initial_sleep=0.5):
-        message_to_delete = await message.answer("Проверка корректности группы...")
+        message_to_delete = await message.answer("🔍 Идет поиск группы...")
 
         async with UniversityClient(group_name) as client:
             groups_autocomplete = await client.find_groups()
