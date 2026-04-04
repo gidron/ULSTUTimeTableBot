@@ -2,6 +2,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from constants.buttons_text import ButtonText as BT
 from constants.callbacks import CallbackConstants
+from keyboards.factories import PickSuggestedGroupCallback
 
 
 def profile_inline_kb(notifications_enabled: bool) -> InlineKeyboardMarkup:
@@ -24,3 +25,18 @@ def profile_inline_kb(notifications_enabled: bool) -> InlineKeyboardMarkup:
             ],
         ]
     )
+
+
+def group_suggestions_inline_kb(groups: list[str]) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    for i, name in enumerate(groups):
+        label = name if len(name) <= 64 else f"{name[:61]}..."
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=label,
+                    callback_data=PickSuggestedGroupCallback(index=i).pack(),
+                )
+            ]
+        )
+    return InlineKeyboardMarkup(inline_keyboard=rows)

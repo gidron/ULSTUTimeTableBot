@@ -5,3 +5,7 @@ class AcceptNewUserCallback(CallbackData, prefix="accept_new_user"):
     tg_id: int
     accept: bool
 
+
+class PickSuggestedGroupCallback(CallbackData, prefix="pick_sgrp"):
+    index: int
+
