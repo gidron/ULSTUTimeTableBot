@@ -13,7 +13,7 @@ TORTOISE_ORM_CONFIG = {
                 "host": settings.pg_host,
                 "port": settings.pg_port,
                 "user": settings.pg_user,
-            }
+            },
         }
     },
     "apps": {

@@ -8,4 +8,3 @@ class AcceptNewUserCallback(CallbackData, prefix="accept_new_user"):
 
 class PickSuggestedGroupCallback(CallbackData, prefix="pick_sgrp"):
     index: int
-

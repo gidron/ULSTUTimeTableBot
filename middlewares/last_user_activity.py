@@ -14,10 +14,10 @@ class LastUserActivityMiddleware(BaseMiddleware):
         self.cache: dict[int, date] = {}
 
     async def __call__(
-            self,
-            handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
-            event: Message,
-            data: Dict[str, Any],
+        self,
+        handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
+        event: Message,
+        data: Dict[str, Any],
     ) -> Any:
         tg_id = event.from_user.id
         today = date.today()

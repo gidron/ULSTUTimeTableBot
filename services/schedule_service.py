@@ -17,19 +17,21 @@ class ScheduleService:
         self.renderer = ScheduleRenderer()
         self.client = UniversityClient(group_name=group_name)
         self.group_name = group_name
-        logger.debug("ScheduleService инициализирован | group_name=%s", group_name)
+        logger.debug("ScheduleService initialized | group_name=%s", group_name)
 
     async def get_week_image(self, week_kind: str) -> tuple[bytes, str, str]:
-        logger.info("Запрошена генерация расписания | week_kind=%s", week_kind)
+        logger.info("Generating schedule image | week_kind=%s", week_kind)
 
         current_week_number, payload = await self._load_schedule_payload()
-        logger.debug("Получены данные расписания | current_week_number=%s", current_week_number)
+        logger.debug(
+            "Schedule payload loaded | current_week_number=%s", current_week_number
+        )
 
         week_key, week_data = self._pick_week(payload, week_kind, current_week_number)
         display_week_number = int(week_key) + 1
 
         logger.debug(
-            "Выбрана неделя | week_key=%s | display_week_number=%s | week_kind=%s",
+            "Week selected | week_key=%s | display_week_number=%s | week_kind=%s",
             week_key,
             display_week_number,
             week_kind,
@@ -39,7 +41,9 @@ class ScheduleService:
             current_week_number=current_week_number,
             selected_week_number=display_week_number,
         )
-        logger.debug("Определён индекс подсветки дня | highlight_day_index=%s", highlight_day_index)
+        logger.debug(
+            "Resolved highlight day index | highlight_day_index=%s", highlight_day_index
+        )
 
         normalized_payload = self._normalize_week(
             week_number=display_week_number,
@@ -47,7 +51,7 @@ class ScheduleService:
             highlight_day_index=highlight_day_index,
         )
         logger.debug(
-            "Неделя нормализована | display_week_number=%s | days_count=%s",
+            "Week normalized | display_week_number=%s | days_count=%s",
             display_week_number,
             len(normalized_payload.get("days", [])),
         )
@@ -58,7 +62,7 @@ class ScheduleService:
             selected_display_week_number=display_week_number,
         )
         logger.debug(
-            "Даты добавлены к дням недели | week_date_range=%s",
+            "Dates attached to week days | week_date_range=%s",
             normalized_payload.get("week_date_range", ""),
         )
 
@@ -67,7 +71,7 @@ class ScheduleService:
         week_range = normalized_payload.get("week_date_range", "")
 
         logger.info(
-            "Расписание успешно сгенерировано | display_week_number=%s | filename=%s | bytes=%s",
+            "Schedule image generated | display_week_number=%s | filename=%s | bytes=%s",
             display_week_number,
             filename,
             len(image_bytes),
@@ -75,56 +79,56 @@ class ScheduleService:
         return image_bytes, filename, week_range
 
     async def _load_schedule_payload(self) -> tuple[int | None, dict]:
-        logger.debug("Начало загрузки расписания через UniversityClient")
+        logger.debug("Loading schedule via UniversityClient")
         async with self.client as client:
             result = await client.get_current_week_and_timetable()
-        logger.debug("Загрузка расписания завершена")
+        logger.debug("Schedule load finished")
         return result
 
     def _pick_week(
-            self,
-            payload: dict,
-            week_kind: str,
-            current_week_number: int | None,
+        self,
+        payload: dict,
+        week_kind: str,
+        current_week_number: int | None,
     ) -> tuple[str, dict]:
         logger.debug(
-            "Выбор недели через TimetableParser | week_kind=%s | current_week_number=%s",
+            "Picking week via TimetableParser | week_kind=%s | current_week_number=%s",
             week_kind,
             current_week_number,
         )
         return TimetableParser.pick_week(payload, week_kind, current_week_number)
 
     def _resolve_highlight_day_index(
-            self,
-            current_week_number: int | None,
-            selected_week_number: int,
+        self,
+        current_week_number: int | None,
+        selected_week_number: int,
     ) -> int | None:
         logger.debug(
-            "Определение подсветки дня | current_week_number=%s | selected_week_number=%s",
+            "Resolving current-day highlight | current_week_number=%s | selected_week_number=%s",
             current_week_number,
             selected_week_number,
         )
 
         if current_week_number is None:
-            logger.debug("Подсветка не будет выполнена: current_week_number отсутствует")
+            logger.debug("Skipping highlight: current_week_number is missing")
             return None
 
         if current_week_number != selected_week_number:
-            logger.debug("Подсветка не будет выполнена: выбрана не текущая неделя")
+            logger.debug("Skipping highlight: selected week is not the current week")
             return None
 
         day_index = self._get_current_day_index()
-        logger.debug("Будет подсвечен день | day_index=%s", day_index)
+        logger.debug("Highlighting day | day_index=%s", day_index)
         return day_index
 
     def _normalize_week(
-            self,
-            week_number: int,
-            week_data: dict,
-            highlight_day_index: int | None,
+        self,
+        week_number: int,
+        week_data: dict,
+        highlight_day_index: int | None,
     ) -> dict:
         logger.debug(
-            "Нормализация недели | week_number=%s | highlight_day_index=%s",
+            "Normalizing week | week_number=%s | highlight_day_index=%s",
             week_number,
             highlight_day_index,
         )
@@ -136,34 +140,36 @@ class ScheduleService:
         )
 
     def _render_week(self, normalized_payload: dict) -> bytes:
-        logger.debug("Передача данных в рендерер")
+        logger.debug("Sending payload to renderer")
         return self.renderer.render(normalized_payload)
 
     def _build_filename(self, week_number: int) -> str:
         filename = f"schedule_week_{week_number}.png"
-        logger.debug("Сформировано имя файла | filename=%s", filename)
+        logger.debug("Built output filename | filename=%s", filename)
         return filename
 
     def _get_current_day_index(self) -> int | None:
         weekday = datetime.now().weekday()
         result = weekday if 0 <= weekday <= 5 else None
-        logger.debug("Текущий индекс дня вычислен | weekday=%s | result=%s", weekday, result)
+        logger.debug(
+            "Computed current day index | weekday=%s | result=%s", weekday, result
+        )
         return result
 
     def _attach_dates_to_days(
-            self,
-            normalized_payload: dict,
-            current_week_number: int | None,
-            selected_display_week_number: int,
+        self,
+        normalized_payload: dict,
+        current_week_number: int | None,
+        selected_display_week_number: int,
     ) -> None:
         logger.debug(
-            "Начало генерации дат | current_week_number=%s | selected_display_week_number=%s",
+            "Generating day dates | current_week_number=%s | selected_display_week_number=%s",
             current_week_number,
             selected_display_week_number,
         )
 
         if current_week_number is None:
-            logger.debug("Даты не будут сгенерированы: current_week_number отсутствует")
+            logger.debug("Skipping date generation: current_week_number is missing")
             return
 
         today = datetime.now().date()
@@ -173,7 +179,7 @@ class ScheduleService:
         selected_monday = current_monday + timedelta(days=week_offset * 7)
 
         logger.debug(
-            "Базовые даты вычислены | today=%s | current_monday=%s | selected_monday=%s | week_offset=%s",
+            "Base dates computed | today=%s | current_monday=%s | selected_monday=%s | week_offset=%s",
             today,
             current_monday,
             selected_monday,
@@ -183,21 +189,23 @@ class ScheduleService:
         for day_payload in normalized_payload.get("days", []):
             day_index = day_payload.get("day_index")
             if day_index is None:
-                logger.debug("Пропуск дня без day_index | payload=%s", day_payload)
+                logger.debug("Skipping day without day_index | payload=%s", day_payload)
                 continue
 
             day_date = selected_monday + timedelta(days=day_index)
             day_payload["date"] = day_date.strftime("%d.%m")
 
             logger.debug(
-                "Дата добавлена | day_index=%s | date=%s",
+                "Date set for day | day_index=%s | date=%s",
                 day_index,
                 day_payload["date"],
             )
 
-        normalized_payload["week_date_range"] = self._build_week_date_range(selected_monday)
+        normalized_payload["week_date_range"] = self._build_week_date_range(
+            selected_monday
+        )
         logger.debug(
-            "Диапазон недели сформирован | week_date_range=%s",
+            "Week date range set | week_date_range=%s",
             normalized_payload["week_date_range"],
         )
 

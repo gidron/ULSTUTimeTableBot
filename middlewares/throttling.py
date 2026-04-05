@@ -7,15 +7,16 @@ from core.config import get_settings
 
 settings = get_settings()
 
+
 class ThrottlingMiddleware(BaseMiddleware):
     def __init__(self, throttle_time: int = settings.throttle_time):
         self.cache = TTLCache(maxsize=10_000, ttl=throttle_time)
 
     async def __call__(
-            self,
-            handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
-            event: Message,
-            data: Dict[str, Any],
+        self,
+        handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
+        event: Message,
+        data: Dict[str, Any],
     ) -> Any:
 
         if event.chat.id in self.cache:

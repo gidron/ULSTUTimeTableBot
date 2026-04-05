@@ -25,7 +25,7 @@ async def main() -> None:
     settings = get_settings()
     await init_database()
 
-    logger.info("Starting bot...")
+    logger.info("Starting bot")
 
     bot = Bot(
         token=settings.bot_token,
@@ -40,7 +40,7 @@ async def main() -> None:
     dp.message.outer_middleware(ThrottlingMiddleware())
     dp.message.outer_middleware(CheckUserIsActiveMiddleware())
 
-    logger.info("Bot initialized successfully, starting polling")
+    logger.info("Bot initialized, starting polling")
 
     await bot.delete_webhook(drop_pending_updates=True)
     notifier = ScheduleChangeNotifier()
@@ -60,10 +60,10 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Bot stopped successfully.")
+        logger.info("Bot stopped successfully")
     except ConnectionError as exc:
-        logger.info("Error during connecting to redis")
+        logger.error("Failed to connect to Redis | error=%s", exc)
         raise SystemExit(1) from exc
     except (TelegramNetworkError, SystemExit) as e:
-        logger.warning("Bot stopped during an error: %s", e)
+        logger.warning("Bot stopped due to error | error=%s", e)
         raise SystemExit(1) from e

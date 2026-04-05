@@ -79,10 +79,10 @@ class ScheduleRenderer:
 
         rows = len(week_payload["days"])
         height = (
-                self._top_header_height
-                + self._pair_row_height
-                + self._time_row_height
-                + rows * self._day_row_height
+            self._top_header_height
+            + self._pair_row_height
+            + self._time_row_height
+            + rows * self._day_row_height
         )
 
         logger.debug(
@@ -122,7 +122,9 @@ class ScheduleRenderer:
 
         y1 = 0
         y2 = self._top_header_height
-        draw.rectangle([(0, y1), (self._canvas_width - 1, y2)], outline=GRID_LINE, width=1, fill=BG)
+        draw.rectangle(
+            [(0, y1), (self._canvas_width - 1, y2)], outline=GRID_LINE, width=1, fill=BG
+        )
 
         left_label = "Расписание группы:"
         left_group = f" {week_payload['group_name']}"
@@ -130,18 +132,38 @@ class ScheduleRenderer:
         label_bbox = draw.textbbox((0, 0), left_label, font=self.font_title)
         label_w = label_bbox[2] - label_bbox[0]
 
-        draw.text((12 * self.scale, 10 * self.scale), left_label, fill=TEXT, font=self.font_title)
-        draw.text((12 * self.scale + label_w, 10 * self.scale), left_group, fill=TEXT, font=self.font_title_bold)
+        draw.text(
+            (12 * self.scale, 10 * self.scale),
+            left_label,
+            fill=TEXT,
+            font=self.font_title,
+        )
+        draw.text(
+            (12 * self.scale + label_w, 10 * self.scale),
+            left_group,
+            fill=TEXT,
+            font=self.font_title_bold,
+        )
 
         center_text = self.settings.bot_link_text
         center_bbox = draw.textbbox((0, 0), center_text, font=self.font_title)
         center_w = center_bbox[2] - center_bbox[0]
-        draw.text(((self._canvas_width - center_w) / 2, 10 * self.scale), center_text, fill=TEXT, font=self.font_title)
+        draw.text(
+            ((self._canvas_width - center_w) / 2, 10 * self.scale),
+            center_text,
+            fill=TEXT,
+            font=self.font_title,
+        )
 
         right_text = f"Неделя: {week_payload['week_number']}-я"
         right_bbox = draw.textbbox((0, 0), right_text, font=self.font_title)
         right_w = right_bbox[2] - right_bbox[0]
-        draw.text((self._canvas_width - right_w - 12 * self.scale, 10 * self.scale), right_text, fill=TEXT, font=self.font_title)
+        draw.text(
+            (self._canvas_width - right_w - 12 * self.scale, 10 * self.scale),
+            right_text,
+            fill=TEXT,
+            font=self.font_title,
+        )
 
     def _draw_pair_header(self, draw: ImageDraw.ImageDraw) -> None:
         logger.debug("Drawing pair header")
@@ -159,7 +181,12 @@ class ScheduleRenderer:
         x = self._left_col_width
         for idx, name in enumerate(PAIR_HEADERS):
             width = self._pair_col_widths[idx]
-            logger.debug("Drawing pair header cell | index=%s | text=%s | width=%s", idx, name, width)
+            logger.debug(
+                "Drawing pair header cell | index=%s | text=%s | width=%s",
+                idx,
+                name,
+                width,
+            )
             self._draw_centered_text(
                 draw=draw,
                 box=(x, y1, x + width, y2),
@@ -184,7 +211,12 @@ class ScheduleRenderer:
         x = self._left_col_width
         for idx, time_label in enumerate(PAIR_TIMES):
             width = self._pair_col_widths[idx]
-            logger.debug("Drawing time header cell | index=%s | text=%s | width=%s", idx, time_label, width)
+            logger.debug(
+                "Drawing time header cell | index=%s | text=%s | width=%s",
+                idx,
+                time_label,
+                width,
+            )
             self._draw_centered_text(
                 draw=draw,
                 box=(x, y1, x + width, y2),
@@ -194,7 +226,9 @@ class ScheduleRenderer:
             x += width
 
     def _draw_body(self, draw: ImageDraw.ImageDraw, week_payload: dict) -> None:
-        start_y = self._top_header_height + self._pair_row_height + self._time_row_height
+        start_y = (
+            self._top_header_height + self._pair_row_height + self._time_row_height
+        )
         days = week_payload["days"]
 
         logger.debug("Drawing body | days_count=%s", len(days))
@@ -217,9 +251,15 @@ class ScheduleRenderer:
             self._draw_day_label(draw, y1, y2, day_payload)
             self._draw_slots(draw, y1, y2, day_payload["slots"])
 
-    def _draw_day_label(self, draw: ImageDraw.ImageDraw, y1: int, y2: int, day_payload: dict) -> None:
+    def _draw_day_label(
+        self, draw: ImageDraw.ImageDraw, y1: int, y2: int, day_payload: dict
+    ) -> None:
         day_index = day_payload["day_index"]
-        label = WEEKDAY_NAMES[day_index] if day_index < len(WEEKDAY_NAMES) else str(day_index)
+        label = (
+            WEEKDAY_NAMES[day_index]
+            if day_index < len(WEEKDAY_NAMES)
+            else str(day_index)
+        )
         date_text = day_payload.get("date")
 
         logger.debug(
@@ -258,7 +298,9 @@ class ScheduleRenderer:
             )
             current_y += h + gap
 
-    def _draw_slots(self, draw: ImageDraw.ImageDraw, y1: int, y2: int, slots: Iterable[str]) -> None:
+    def _draw_slots(
+        self, draw: ImageDraw.ImageDraw, y1: int, y2: int, slots: Iterable[str]
+    ) -> None:
         slots = list(slots)
         logger.debug("Drawing slots | slots_count=%s", len(slots))
 
@@ -286,11 +328,11 @@ class ScheduleRenderer:
             x += width
 
     def _draw_text_in_cell(
-            self,
-            draw: ImageDraw.ImageDraw,
-            box: tuple[int, int, int, int],
-            text: str,
-            font: ImageFont.FreeTypeFont,
+        self,
+        draw: ImageDraw.ImageDraw,
+        box: tuple[int, int, int, int],
+        text: str,
+        font: ImageFont.FreeTypeFont,
     ) -> None:
         logger.debug("Drawing text in cell | box=%s | text_preview=%s", box, text[:80])
 
@@ -349,11 +391,11 @@ class ScheduleRenderer:
         )
 
     def _draw_centered_text(
-            self,
-            draw: ImageDraw.ImageDraw,
-            box: tuple[int, int, int, int],
-            text: str,
-            font: ImageFont.FreeTypeFont,
+        self,
+        draw: ImageDraw.ImageDraw,
+        box: tuple[int, int, int, int],
+        text: str,
+        font: ImageFont.FreeTypeFont,
     ) -> None:
         logger.debug("Drawing centered text | box=%s | text=%s", box, text)
 
@@ -368,11 +410,22 @@ class ScheduleRenderer:
             font=font,
         )
 
-    def _draw_row_grid(self, draw: ImageDraw.ImageDraw, y1: int, y2: int, *, fill: tuple[int, int, int]) -> None:
+    def _draw_row_grid(
+        self, draw: ImageDraw.ImageDraw, y1: int, y2: int, *, fill: tuple[int, int, int]
+    ) -> None:
         logger.debug("Drawing row grid | y1=%s | y2=%s | fill=%s", y1, y2, fill)
 
-        draw.rectangle([(0, y1), (self._canvas_width - 1, y2)], outline=GRID_LINE, width=1, fill=fill)
-        draw.line([(self._left_col_width, y1), (self._left_col_width, y2)], fill=GRID_LINE, width=1)
+        draw.rectangle(
+            [(0, y1), (self._canvas_width - 1, y2)],
+            outline=GRID_LINE,
+            width=1,
+            fill=fill,
+        )
+        draw.line(
+            [(self._left_col_width, y1), (self._left_col_width, y2)],
+            fill=GRID_LINE,
+            width=1,
+        )
 
         x = self._left_col_width
         for width in self._pair_col_widths[:-1]:
@@ -380,11 +433,11 @@ class ScheduleRenderer:
             draw.line([(x, y1), (x, y2)], fill=GRID_LINE, width=1)
 
     def _wrap_text_lines(
-            self,
-            draw: ImageDraw.ImageDraw,
-            text: str,
-            max_width: int,
-            font: ImageFont.FreeTypeFont,
+        self,
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        max_width: int,
+        font: ImageFont.FreeTypeFont,
     ) -> list[str]:
         logger.debug(
             "Wrapping text lines | text_length=%s | max_width=%s",
@@ -417,13 +470,13 @@ class ScheduleRenderer:
         return final_lines
 
     def _fit_lines_to_height(
-            self,
-            draw: ImageDraw.ImageDraw,
-            lines: list[str],
-            max_height: int,
-            font: ImageFont.FreeTypeFont,
-            spacing: int,
-            max_width: int,
+        self,
+        draw: ImageDraw.ImageDraw,
+        lines: list[str],
+        max_height: int,
+        font: ImageFont.FreeTypeFont,
+        spacing: int,
+        max_width: int,
     ) -> list[str]:
         logger.debug(
             "Fitting lines to height | lines_count=%s | max_height=%s | max_width=%s",
@@ -460,13 +513,15 @@ class ScheduleRenderer:
         return fitted
 
     def _truncate_line_with_ellipsis(
-            self,
-            draw: ImageDraw.ImageDraw,
-            line: str,
-            font: ImageFont.FreeTypeFont,
-            max_width: int,
+        self,
+        draw: ImageDraw.ImageDraw,
+        line: str,
+        font: ImageFont.FreeTypeFont,
+        max_width: int,
     ) -> str:
-        logger.debug("Truncating line with ellipsis | line=%s | max_width=%s", line, max_width)
+        logger.debug(
+            "Truncating line with ellipsis | line=%s | max_width=%s", line, max_width
+        )
 
         ellipsis = "..."
         if self._text_width(draw, line, font) <= max_width:
@@ -481,19 +536,23 @@ class ScheduleRenderer:
         return result
 
     def _lines_height(
-            self,
-            draw: ImageDraw.ImageDraw,
-            lines: list[str],
-            font: ImageFont.FreeTypeFont,
-            spacing: int,
+        self,
+        draw: ImageDraw.ImageDraw,
+        lines: list[str],
+        font: ImageFont.FreeTypeFont,
+        spacing: int,
     ) -> int:
         text = "\n".join(lines)
         bbox = draw.multiline_textbbox((0, 0), text, font=font, spacing=spacing)
         height = bbox[3] - bbox[1]
-        logger.debug("Calculated lines height | lines_count=%s | height=%s", len(lines), height)
+        logger.debug(
+            "Calculated lines height | lines_count=%s | height=%s", len(lines), height
+        )
         return height
 
-    def _text_width(self, draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> int:
+    def _text_width(
+        self, draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont
+    ) -> int:
         bbox = draw.textbbox((0, 0), text, font=font)
         return bbox[2] - bbox[0]
 
@@ -504,29 +563,47 @@ class ScheduleRenderer:
             candidates.append(self.settings.font_path)
 
         if bold:
-            candidates.extend([
-                "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                "C:/Windows/Fonts/arialbd.ttf",
-                "/Library/Fonts/Arial Bold.ttf",
-            ])
+            candidates.extend(
+                [
+                    "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    "C:/Windows/Fonts/arialbd.ttf",
+                    "/Library/Fonts/Arial Bold.ttf",
+                ]
+            )
         else:
-            candidates.extend([
-                "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "C:/Windows/Fonts/arial.ttf",
-                "/Library/Fonts/Arial.ttf",
-            ])
+            candidates.extend(
+                [
+                    "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    "C:/Windows/Fonts/arial.ttf",
+                    "/Library/Fonts/Arial.ttf",
+                ]
+            )
 
         for path in candidates:
             if path and Path(path).exists():
                 try:
                     font = ImageFont.truetype(path, size=size)
-                    logger.debug("Font loaded successfully | path=%s | size=%s | bold=%s", path, size, bold)
+                    logger.debug(
+                        "Font loaded successfully | path=%s | size=%s | bold=%s",
+                        path,
+                        size,
+                        bold,
+                    )
                     return font
                 except OSError:
-                    logger.debug("Failed to load font candidate | path=%s | size=%s | bold=%s", path, size, bold)
+                    logger.debug(
+                        "Failed to load font candidate | path=%s | size=%s | bold=%s",
+                        path,
+                        size,
+                        bold,
+                    )
                     continue
 
-        logger.warning("No custom/system font loaded, fallback to default font | size=%s | bold=%s", size, bold)
+        logger.warning(
+            "No custom/system font loaded, fallback to default font | size=%s | bold=%s",
+            size,
+            bold,
+        )
         return ImageFont.load_default()

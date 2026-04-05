@@ -28,11 +28,15 @@ async def toggle_notifications(callback: CallbackQuery):
 
     toggle_text = "включены" if user.notify_by_change else "выключены"
     await callback.answer(f"Уведомления {toggle_text}")
-    await callback.message.edit_reply_markup(reply_markup=profile_inline_kb(user.notify_by_change))
+    await callback.message.edit_reply_markup(
+        reply_markup=profile_inline_kb(user.notify_by_change)
+    )
 
 
 @router.callback_query(default_state, AcceptNewUserCallback.filter())
-async def accept_new_user(callback: CallbackQuery, callback_data: AcceptNewUserCallback):
+async def accept_new_user(
+    callback: CallbackQuery, callback_data: AcceptNewUserCallback
+):
     tg_id = callback_data.tg_id
     is_accept = callback_data.accept
 
@@ -42,12 +46,9 @@ async def accept_new_user(callback: CallbackQuery, callback_data: AcceptNewUserC
         await user.save()
 
         await callback.bot.send_message(
-            chat_id=tg_id,
-            text="Тебя добавили. Введи /start"
+            chat_id=tg_id, text="Тебя добавили. Введи /start"
         )
 
     await callback.answer("Успешно")
     await callback.message.edit_reply_markup(callback.inline_message_id, None)
-    await callback.message.edit_text(
-        "✔" + callback.message.text
-    )
+    await callback.message.edit_text("✔" + callback.message.text)

@@ -15,7 +15,9 @@ from services.network import UniversityClient
 router = Router(name="user_state_handlers_register_user_form")
 
 
-async def _complete_group_setup(message: Message, tg_id: int, group_name: str, state: FSMContext) -> None:
+async def _complete_group_setup(
+    message: Message, tg_id: int, group_name: str, state: FSMContext
+) -> None:
     user = await User.get(tg_id=tg_id)
     user.group_name = group_name
     await user.save()
@@ -44,13 +46,17 @@ async def pick_suggested_group(
     groups: list[str] = data.get("suggested_groups") or []
     idx = callback_data.index
     if idx < 0 or idx >= len(groups):
-        await callback.answer("Список устарел. Введи название группы ещё раз.", show_alert=True)
+        await callback.answer(
+            "Список устарел. Введи название группы ещё раз.", show_alert=True
+        )
         return
 
     await callback.answer()
     group_name = groups[idx]
     await callback.message.delete()
-    await _complete_group_setup(callback.message, callback.from_user.id, group_name, state)
+    await _complete_group_setup(
+        callback.message, callback.from_user.id, group_name, state
+    )
 
 
 @router.message(SetGroupName.group_name, F.text)
@@ -63,7 +69,9 @@ async def user_set_group_name(message: Message, state: FSMContext):
         await message.answer("Название группы должно быть не короче 3 символов.")
         return
 
-    async with ChatActionSender(bot=message.bot, chat_id=message.chat.id, initial_sleep=0.5):
+    async with ChatActionSender(
+        bot=message.bot, chat_id=message.chat.id, initial_sleep=0.5
+    ):
         message_to_delete = await message.answer("🔍 Идет поиск группы...")
 
         async with UniversityClient(group_name) as client:

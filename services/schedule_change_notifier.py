@@ -41,28 +41,32 @@ class ScheduleChangeNotifier:
     async def run_forever(self, bot: Bot) -> None:
         while True:
             sleep_seconds = self._seconds_until_next_run()
-            logger.info("Следующая проверка расписания через %s сек.", sleep_seconds)
+            logger.info(
+                "Sleeping until next schedule check | sleep_seconds=%s", sleep_seconds
+            )
             await asyncio.sleep(sleep_seconds)
             await self.check_and_notify(bot)
 
     async def check_and_notify(self, bot: Bot) -> None:
         groups = await self._get_target_groups()
-        logger.info("Проверка изменений расписания запущена | groups_count=%s", len(groups))
+        logger.info("Starting schedule change check | groups_count=%s", len(groups))
 
         for group_name in groups:
             try:
                 await self._process_group(bot, group_name)
             except Exception:
-                logger.exception("Ошибка во время обработки группы | group=%s", group_name)
+                logger.exception("Error while processing group | group=%s", group_name)
 
     async def _process_group(self, bot: Bot, group_name: str) -> None:
         now = datetime.now()
         async with UniversityClient(group_name=group_name) as client:
             current_week, payload = await client.get_current_week_and_timetable()
 
-        two_week_slots = self._build_two_week_slots(payload=payload, api_current_week=current_week)
+        two_week_slots = self._build_two_week_slots(
+            payload=payload, api_current_week=current_week
+        )
         if not two_week_slots:
-            logger.warning("Не удалось собрать слепок расписания | group=%s", group_name)
+            logger.warning("Failed to build schedule snapshot | group=%s", group_name)
             return
 
         payload_hash = self._hash_payload(two_week_slots)
@@ -75,7 +79,9 @@ class ScheduleChangeNotifier:
                 payload_hash=payload_hash,
                 payload=two_week_slots,
             )
-            logger.info("Создан baseline слепок без уведомления | group=%s", group_name)
+            logger.info(
+                "Created baseline snapshot without notification | group=%s", group_name
+            )
             return
 
         old_slots = snapshot.payload if isinstance(snapshot.payload, list) else []
@@ -92,13 +98,15 @@ class ScheduleChangeNotifier:
         await snapshot.save()
 
         if not changes:
-            logger.info("Изменений нет | group=%s", group_name)
+            logger.info("No schedule changes | group=%s", group_name)
             return
 
         digest = self._hash_payload(changes)
         already_sent = await ScheduleChangeDigest.get_or_none(digest=digest)
         if already_sent is not None:
-            logger.info("Повторный digest, уведомление не отправлено | group=%s", group_name)
+            logger.info(
+                "Duplicate change digest, notification skipped | group=%s", group_name
+            )
             return
 
         await ScheduleChangeDigest.create(group_name=group_name, digest=digest)
@@ -106,41 +114,64 @@ class ScheduleChangeNotifier:
 
     @staticmethod
     async def _get_target_groups() -> list[str]:
-        rows = await User.filter(
-            Q(is_active=True) & Q(group_name__not_isnull=True) & Q(notify_by_change=True)
-        ).distinct().values_list("group_name", flat=True)
+        rows = (
+            await User.filter(
+                Q(is_active=True)
+                & Q(group_name__not_isnull=True)
+                & Q(notify_by_change=True)
+            )
+            .distinct()
+            .values_list("group_name", flat=True)
+        )
         return [group for group in rows if group]
 
     @staticmethod
     def _hash_payload(payload: object) -> str:
-        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode(
+            "utf-8"
+        )
         return hashlib.sha256(encoded).hexdigest()
 
     def _build_two_week_slots(self, payload: dict, api_current_week: int) -> list[dict]:
         """Текущая + следующая неделя в одном слепке (стабильный хеш, без ложных diff при смене окна)."""
         try:
-            cur_key, cur_data = TimetableParser.pick_week(payload, "current", api_current_week)
+            cur_key, cur_data = TimetableParser.pick_week(
+                payload, "current", api_current_week
+            )
         except TimetableParseError:
-            logger.warning("pick_week(current) не удался | api_current_week=%s", api_current_week)
+            logger.warning(
+                "pick_week(current) failed | api_current_week=%s", api_current_week
+            )
             return []
 
         display_current = int(cur_key) + 1
-        slots = self._extract_week_slots(week_data=cur_data, week_number=display_current)
+        slots = self._extract_week_slots(
+            week_data=cur_data, week_number=display_current
+        )
 
         try:
-            nxt_key, nxt_data = TimetableParser.pick_week(payload, "next", api_current_week)
+            nxt_key, nxt_data = TimetableParser.pick_week(
+                payload, "next", api_current_week
+            )
         except TimetableParseError:
-            logger.info("Следующая неделя недоступна, слепок только по текущей | display_week=%s", display_current)
+            logger.info(
+                "Next week unavailable, snapshot limited to current week | display_week=%s",
+                display_current,
+            )
             return self._sort_slots_for_hash(slots)
 
         display_next = int(nxt_key) + 1
-        slots.extend(self._extract_week_slots(week_data=nxt_data, week_number=display_next))
+        slots.extend(
+            self._extract_week_slots(week_data=nxt_data, week_number=display_next)
+        )
 
         return self._sort_slots_for_hash(slots)
 
     @staticmethod
     def _sort_slots_for_hash(slots: list[dict]) -> list[dict]:
-        return sorted(slots, key=lambda s: (s["week_number"], s["day_index"], s["slot_index"]))
+        return sorted(
+            slots, key=lambda s: (s["week_number"], s["day_index"], s["slot_index"])
+        )
 
     @staticmethod
     def _pair_start_time(slot_index: int) -> tuple[int, int]:
@@ -210,8 +241,12 @@ class ScheduleChangeNotifier:
         new_weeks = {s["week_number"] for s in new_norm}
         common_weeks = old_weeks & new_weeks
 
-        old_map = {(s["week_number"], s["day_index"], s["slot_index"]): s for s in old_norm}
-        new_map = {(s["week_number"], s["day_index"], s["slot_index"]): s for s in new_norm}
+        old_map = {
+            (s["week_number"], s["day_index"], s["slot_index"]): s for s in old_norm
+        }
+        new_map = {
+            (s["week_number"], s["day_index"], s["slot_index"]): s for s in new_norm
+        }
 
         all_keys = sorted(set(old_map) | set(new_map))
         changes: list[dict] = []
@@ -228,14 +263,20 @@ class ScheduleChangeNotifier:
                 continue
             old_lessons = [
                 LessonEntry(**lesson)
-                for lesson in old_map.get((week_number, day_index, slot_index), {}).get("lessons", [])
+                for lesson in old_map.get((week_number, day_index, slot_index), {}).get(
+                    "lessons", []
+                )
             ]
             new_lessons = [
                 LessonEntry(**lesson)
-                for lesson in new_map.get((week_number, day_index, slot_index), {}).get("lessons", [])
+                for lesson in new_map.get((week_number, day_index, slot_index), {}).get(
+                    "lessons", []
+                )
             ]
             changes.extend(
-                self._compare_slot(week_number, day_index, slot_index, old_lessons, new_lessons)
+                self._compare_slot(
+                    week_number, day_index, slot_index, old_lessons, new_lessons
+                )
             )
 
         return changes
@@ -267,8 +308,12 @@ class ScheduleChangeNotifier:
         new_lessons: list[LessonEntry],
     ) -> list[dict]:
         changes: list[dict] = []
-        old_full = Counter((lesson.name, lesson.teacher, lesson.room) for lesson in old_lessons)
-        new_full = Counter((lesson.name, lesson.teacher, lesson.room) for lesson in new_lessons)
+        old_full = Counter(
+            (lesson.name, lesson.teacher, lesson.room) for lesson in old_lessons
+        )
+        new_full = Counter(
+            (lesson.name, lesson.teacher, lesson.room) for lesson in new_lessons
+        )
 
         removed = old_full - new_full
         added = new_full - old_full
@@ -369,7 +414,9 @@ class ScheduleChangeNotifier:
         )
         return slot_start_dt >= now
 
-    async def _notify_group_users(self, bot: Bot, group_name: str, changes: list[dict]) -> None:
+    async def _notify_group_users(
+        self, bot: Bot, group_name: str, changes: list[dict]
+    ) -> None:
         users = await User.filter(
             Q(is_active=True) & Q(group_name=group_name) & Q(notify_by_change=True)
         ).values_list("tg_id", flat=True)
@@ -382,7 +429,9 @@ class ScheduleChangeNotifier:
             try:
                 await bot.send_message(chat_id=int(tg_id), text=text)
             except Exception:
-                logger.exception("Не удалось отправить уведомление | tg_id=%s", tg_id)
+                logger.exception(
+                    "Failed to send schedule change notification | tg_id=%s", tg_id
+                )
 
     @staticmethod
     def _render_message(group_name: str, changes: list[dict]) -> str:
@@ -394,7 +443,11 @@ class ScheduleChangeNotifier:
                 week_label = f"нед. {wn}, "
             day_name = WEEKDAY_NAMES[change["day_index"]]
             pair_number = change["slot_index"] + 1
-            pair_time = PAIR_TIMES[change["slot_index"]] if change["slot_index"] < len(PAIR_TIMES) else ""
+            pair_time = (
+                PAIR_TIMES[change["slot_index"]]
+                if change["slot_index"] < len(PAIR_TIMES)
+                else ""
+            )
 
             if change["type"] == "cancelled":
                 lesson = change["lesson"]

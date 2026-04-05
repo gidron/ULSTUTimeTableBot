@@ -9,4 +9,4 @@ router.include_routers(
     user_router,
 )
 
-__all__ = ("router", )
+__all__ = ("router",)

@@ -60,7 +60,7 @@ async def list_users(message: Message):
             row = "❌" + row
 
         if user.is_admin:
-           row = "💀" + row
+            row = "💀" + row
 
         text += row
 

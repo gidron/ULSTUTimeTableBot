@@ -13,14 +13,13 @@ def profile_inline_kb(notifications_enabled: bool) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=BT.CHANGE_GROUP,
-                    callback_data=CallbackConstants.SET_GROUP_NAME
+                    text=BT.CHANGE_GROUP, callback_data=CallbackConstants.SET_GROUP_NAME
                 )
             ],
             [
                 InlineKeyboardButton(
                     text=notifications_button_text,
-                    callback_data=CallbackConstants.TOGGLE_NOTIFICATIONS
+                    callback_data=CallbackConstants.TOGGLE_NOTIFICATIONS,
                 )
             ],
         ]

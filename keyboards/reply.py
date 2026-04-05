@@ -5,33 +5,19 @@ remove_kb = ReplyKeyboardRemove()
 
 main_menu_user_kb = ReplyKeyboardMarkup(
     keyboard=[
-        [
-            KeyboardButton(text=BT.CURRENT_WEEK),
-            KeyboardButton(text=BT.NEXT_WEEK)
-        ],
-        [
-            KeyboardButton(text=BT.PROFILE)
-        ]
+        [KeyboardButton(text=BT.CURRENT_WEEK), KeyboardButton(text=BT.NEXT_WEEK)],
+        [KeyboardButton(text=BT.PROFILE)],
     ],
     resize_keyboard=True,
-    input_field_placeholder="Главное меню"
+    input_field_placeholder="Главное меню",
 )
 
 blocked_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [
-            KeyboardButton(text=BT.DEATH)
-        ]
-    ],
+    keyboard=[[KeyboardButton(text=BT.DEATH)]],
     resize_keyboard=True,
-    input_field_placeholder="Ваш аккаунт заблокирован"
+    input_field_placeholder="Ваш аккаунт заблокирован",
 )
 
 cancel_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [
-            KeyboardButton(text=BT.CANCEL)
-        ]
-    ],
-    resize_keyboard=True
+    keyboard=[[KeyboardButton(text=BT.CANCEL)]], resize_keyboard=True
 )

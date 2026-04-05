@@ -19,8 +19,8 @@ class UniversityApiClient:
     AUTOCOMPLETE_API_URL = settings.autocomplete_api_url
 
     def __init__(
-            self,
-            session_provider: UniversitySessionProvider,
+        self,
+        session_provider: UniversitySessionProvider,
     ) -> None:
         self.session_provider = session_provider
         self.group = session_provider.group
@@ -40,7 +40,7 @@ class UniversityApiClient:
             return week
         except (KeyError, TypeError, ValueError) as exc:
             logger.exception("Invalid current-week response")
-            raise UniversityApiError("Некорректный ответ current-week.") from exc
+            raise UniversityApiError("Invalid current-week API response.") from exc
 
     async def get_timetable(self) -> dict[str, Any]:
         logger.debug("Requesting timetable | group=%s", self.group)
@@ -74,11 +74,11 @@ class UniversityApiClient:
             groups = data["response"]["groups"]
         except (KeyError, TypeError) as exc:
             logger.exception("Invalid autocomplete response structure")
-            raise UniversityApiError("Некорректный ответ autocomplete.") from exc
+            raise UniversityApiError("Invalid autocomplete API response.") from exc
 
         if not isinstance(groups, list):
             logger.error("Autocomplete groups is not a list")
-            raise UniversityApiError("Некорректный формат groups в autocomplete.")
+            raise UniversityApiError("Invalid groups format in autocomplete response.")
 
         result = [str(group).strip() for group in groups if str(group).strip()]
         logger.debug("Groups found | count=%s | groups=%s", len(result), result)
@@ -107,12 +107,12 @@ class UniversityApiClient:
         return current_week, timetable
 
     async def _request_json(
-            self,
-            method: str,
-            url: str,
-            *,
-            params: dict[str, Any] | None = None,
-            retry_on_auth: bool = True,
+        self,
+        method: str,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        retry_on_auth: bool = True,
     ) -> dict[str, Any]:
         logger.debug(
             "Preparing API request | method=%s | url=%s | params=%s | retry_on_auth=%s",
@@ -146,7 +146,7 @@ class UniversityApiClient:
             if not retry_on_auth:
                 logger.error("Re-authentication disabled and required | url=%s", url)
                 raise UniversityAuthError(
-                    "Сессия истекла и повторная авторизация не помогла."
+                    "Session expired and re-authentication did not help."
                 )
 
             await self.session_provider.refresh_authorization()
@@ -168,21 +168,27 @@ class UniversityApiClient:
             )
 
         if response.status_code != 200:
-            logger.error("API request failed | url=%s | status_code=%s", url, response.status_code)
+            logger.error(
+                "API request failed | url=%s | status_code=%s",
+                url,
+                response.status_code,
+            )
             raise UniversityApiError(
-                f"Ошибка запроса к API {url}. HTTP {response.status_code}"
+                f"API request failed for {url}. HTTP {response.status_code}"
             )
 
         try:
             data = response.json()
         except ValueError as exc:
             logger.exception("API returned invalid JSON | url=%s", url)
-            raise UniversityApiError(f"API {url} вернул не JSON.") from exc
+            raise UniversityApiError(f"API {url} returned non-JSON body.") from exc
 
         error_text = data.get("error")
         if error_text:
-            logger.error("API returned error field | url=%s | error=%s", url, error_text)
-            raise UniversityApiError(f"API вернул ошибку: {error_text}")
+            logger.error(
+                "API returned error field | url=%s | error=%s", url, error_text
+            )
+            raise UniversityApiError(f"API returned error: {error_text}")
 
         logger.debug("API JSON parsed successfully | url=%s", url)
         return data
@@ -190,7 +196,9 @@ class UniversityApiClient:
     @staticmethod
     def _response_requires_reauth(response: httpx.Response) -> bool:
         if response.status_code in {401, 403}:
-            logger.debug("Re-auth required because of status code %s", response.status_code)
+            logger.debug(
+                "Re-auth required because of status code %s", response.status_code
+            )
             return True
 
         content_type = response.headers.get("Content-Type", "")
@@ -204,7 +212,9 @@ class UniversityApiClient:
             "form",
             "password",
         )
-        result = "html" in content_type and any(marker in text for marker in auth_markers)
+        result = "html" in content_type and any(
+            marker in text for marker in auth_markers
+        )
         logger.debug(
             "Re-auth check by response body | content_type=%s | result=%s",
             content_type,

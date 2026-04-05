@@ -17,11 +17,11 @@ class UniversitySessionProvider:
     TIMETABLE_PAGE_URL = settings.timetable_page_url
 
     def __init__(
-            self,
-            group: str,
-            login: str = settings.university_login,
-            password: str = settings.university_password,
-            timeout: float = settings.request_timeout,
+        self,
+        group: str,
+        login: str = settings.university_login,
+        password: str = settings.university_password,
+        timeout: float = settings.request_timeout,
     ) -> None:
         self.login = login
         self.password = password
@@ -123,8 +123,7 @@ class UniversitySessionProvider:
                 "Origin": "https://lk.ulstu.ru",
                 "Referer": "https://lk.ulstu.ru/?q=auth/login&r=q%3Dhome",
                 "Accept": (
-                    "text/html,application/xhtml+xml,application/xml;q=0.9,"
-                    "*/*;q=0.8"
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
                 ),
             },
         )
@@ -138,7 +137,7 @@ class UniversitySessionProvider:
         if login_response.status_code != 200:
             logger.error("Login failed | status_code=%s", login_response.status_code)
             raise UniversityAuthError(
-                f"Не удалось выполнить вход в ЛК. HTTP {login_response.status_code}"
+                f"University login failed. HTTP {login_response.status_code}"
             )
 
         home_response = await self._client.get(
@@ -146,8 +145,7 @@ class UniversitySessionProvider:
             headers={
                 "Referer": "https://lk.ulstu.ru/?q=auth/login&r=q%3Dhome",
                 "Accept": (
-                    "text/html,application/xhtml+xml,application/xml;q=0.9,"
-                    "*/*;q=0.8"
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
                 ),
             },
         )
@@ -159,16 +157,17 @@ class UniversitySessionProvider:
         )
 
         if home_response.status_code != 200:
-            logger.error("Home page open failed | status_code=%s", home_response.status_code)
+            logger.error(
+                "Home page open failed | status_code=%s", home_response.status_code
+            )
             raise UniversityAuthError(
-                f"Не удалось открыть главную страницу ЛК. HTTP {home_response.status_code}"
+                f"Failed to open university home page. HTTP {home_response.status_code}"
             )
 
         if not self._looks_like_logged_in_home(home_response.text):
             logger.error("Authorization failed: home page is not authenticated")
             raise UniversityAuthError(
-                "Похоже, авторизация не удалась: главная страница ЛК "
-                "не выглядит как страница авторизованного пользователя."
+                "Authorization failed: home page does not look like an authenticated session."
             )
 
         timetable_page_response = await self._client.get(
@@ -192,14 +191,13 @@ class UniversitySessionProvider:
                 timetable_page_response.status_code,
             )
             raise UniversityAuthError(
-                f"Не удалось открыть страницу расписания. "
-                f"HTTP {timetable_page_response.status_code}"
+                f"Failed to open timetable page. HTTP {timetable_page_response.status_code}"
             )
 
         if not self._has_time_session():
             logger.error("No time.ulstu.ru session cookie after timetable page open")
             raise UniversityAuthError(
-                "После перехода на time.ulstu.ru не появилась cookie session."
+                "No session cookie appeared after navigating to time.ulstu.ru."
             )
 
         self._authorized = True
