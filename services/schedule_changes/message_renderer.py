@@ -40,7 +40,7 @@ def render_schedule_change_message(group_name: str, changes: list[dict]) -> str:
             continue
 
         lines.append(
-            f"• {week_label}{day_name}, {pair_number}-я пара ({pair_time}) — аудитория изменена: "
+            f"• {week_label}{day_name}, {pair_number}-я пара ({pair_time}) — пара изменена: "
             f"{change.get('lesson_name', 'Без названия')}, "
             f"{change.get('teacher', 'Преподаватель не указан')} "
             f"({change.get('old_room', '—')} -> {change.get('new_room', '—')})"
