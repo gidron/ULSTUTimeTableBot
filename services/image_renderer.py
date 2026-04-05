@@ -1,3 +1,5 @@
+"""Отрисовка недельного расписания в PNG (Pillow)."""
+
 from __future__ import annotations
 
 import logging
@@ -8,21 +10,9 @@ from typing import Iterable
 from PIL import Image, ImageDraw, ImageFont
 
 from core.config import get_settings
+from services.schedule_constants import PAIR_HEADERS, PAIR_TIMES, WEEKDAY_NAMES
 
 logger = logging.getLogger("renderer")
-
-WEEKDAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
-PAIR_HEADERS = ["1-я", "2-я", "3-я", "4-я", "5-я", "6-я", "7-я", "8-я"]
-PAIR_TIMES = [
-    "08:30-09:50",
-    "10:00-11:20",
-    "11:30-12:50",
-    "13:30-14:50",
-    "15:00-16:20",
-    "16:30-17:50",
-    "18:00-19:20",
-    "19:30-20:50",
-]
 
 CANVAS_WIDTH = 1280
 TOP_HEADER_HEIGHT = 50
@@ -40,7 +30,10 @@ TEXT = (20, 20, 20)
 
 
 class ScheduleRenderer:
+    """Рендер нормализованного payload недели в растровое изображение."""
+
     def __init__(self) -> None:
+        """Загружает шрифты из настроек и задаёт масштаб отрисовки."""
         self.settings = get_settings()
         self.scale = 2
 
@@ -71,6 +64,7 @@ class ScheduleRenderer:
         )
 
     def render(self, week_payload: dict) -> bytes:
+        """Собирает PNG и возвращает сырые байты (масштаб уменьшается до CANVAS_WIDTH)."""
         logger.info(
             "Starting schedule rendering | group_name=%s | week_number=%s",
             week_payload.get("group_name"),

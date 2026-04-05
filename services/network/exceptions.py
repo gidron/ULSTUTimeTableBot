@@ -1,10 +1,13 @@
+"""Исключения клиента университета (авторизация и JSON API)."""
+
+
 class UniversityClientError(Exception):
-    pass
+    """Базовая ошибка при работе с ЛК или API УлГТУ."""
 
 
 class UniversityAuthError(UniversityClientError):
-    pass
+    """Не удалось войти или получить cookie для time.ulstu.ru."""
 
 
 class UniversityApiError(UniversityClientError):
-    pass
+    """Ошибка или неверный формат ответа JSON API расписания."""

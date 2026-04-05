@@ -1,3 +1,5 @@
+"""Управление httpx-сессией: логин в ЛК, cookie для time.ulstu.ru."""
+
 from __future__ import annotations
 
 import logging
@@ -12,6 +14,8 @@ logger = logging.getLogger("client")
 
 
 class UniversitySessionProvider:
+    """Контекстный менеджер: при необходимости выполняет цикл логина и открытия страниц."""
+
     LOGIN_URL = settings.login_url
     HOME_URL = settings.home_url
     TIMETABLE_PAGE_URL = settings.timetable_page_url

@@ -1,3 +1,5 @@
+"""Разбор ответа API time.ulstu.ru: недели, нормализация под рендер и слепки."""
+
 from __future__ import annotations
 
 import logging
@@ -7,10 +9,12 @@ logger = logging.getLogger("parser")
 
 
 class TimetableParseError(Exception):
-    pass
+    """Некорректная или неполная структура расписания в ответе API."""
 
 
 class TimetableParser:
+    """Статические методы выбора недели и приведения данных к виду для картинки."""
+
     @staticmethod
     def get_weeks(payload: dict) -> list[tuple[str, dict]]:
         logger.debug("Extracting weeks from API payload")

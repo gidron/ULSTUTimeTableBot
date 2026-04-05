@@ -1,3 +1,5 @@
+"""HTTP-клиент УлГТУ: сессия ЛК + запросы к API расписания."""
+
 from __future__ import annotations
 
 import httpx
@@ -7,6 +9,8 @@ from .session_provider import UniversitySessionProvider
 
 
 class UniversityClient:
+    """Фасад: контекстный менеджер с авторизацией и методами API для группы."""
+
     def __init__(self, group_name: str) -> None:
         self.session_provider = UniversitySessionProvider(group=group_name)
 

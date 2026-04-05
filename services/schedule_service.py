@@ -1,25 +1,45 @@
+"""Оркестрация: загрузка расписания, нормализация, даты, генерация PNG."""
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from datetime import datetime
 
-from core.config import get_settings
-from .network import UniversityClient
-from .image_renderer import ScheduleRenderer
-from .data_parser import TimetableParser
+from services.data_parser import TimetableParser
+from services.image_renderer import ScheduleRenderer
+from services.network import UniversityClient
+from services.ports import ScheduleImageRenderer, TimetableSource
+from services.schedule_week_dates import (
+    attach_dates_to_week_days,
+    compute_highlight_day_index,
+)
 
 logger = logging.getLogger("default")
 
 
 class ScheduleService:
-    def __init__(self, group_name: str) -> None:
-        self.settings = get_settings()
-        self.renderer = ScheduleRenderer()
-        self.client = UniversityClient(group_name=group_name)
+    """Сборка расписания группы в картинку на неделю (текущая / следующая)."""
+
+    def __init__(
+        self,
+        group_name: str,
+        *,
+        timetable_source: TimetableSource | None = None,
+        image_renderer: ScheduleImageRenderer | None = None,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        """По умолчанию — UniversityClient, ScheduleRenderer и datetime.now."""
         self.group_name = group_name
+        self._timetable_source = timetable_source or UniversityClient(
+            group_name=group_name
+        )
+        self._image_renderer = image_renderer or ScheduleRenderer()
+        self._clock = clock or datetime.now
         logger.debug("ScheduleService initialized | group_name=%s", group_name)
 
     async def get_week_image(self, week_kind: str) -> tuple[bytes, str, str]:
+        """Возвращает PNG, имя файла и строку диапазона дат. week_kind: 'current' | 'next'."""
         logger.info("Generating schedule image | week_kind=%s", week_kind)
 
         current_week_number, payload = await self._load_schedule_payload()
@@ -37,9 +57,10 @@ class ScheduleService:
             week_kind,
         )
 
-        highlight_day_index = self._resolve_highlight_day_index(
-            current_week_number=current_week_number,
-            selected_week_number=display_week_number,
+        highlight_day_index = compute_highlight_day_index(
+            current_week_number,
+            display_week_number,
+            reference=self._clock(),
         )
         logger.debug(
             "Resolved highlight day index | highlight_day_index=%s", highlight_day_index
@@ -56,11 +77,20 @@ class ScheduleService:
             len(normalized_payload.get("days", [])),
         )
 
-        self._attach_dates_to_days(
-            normalized_payload=normalized_payload,
-            current_week_number=current_week_number,
-            selected_display_week_number=display_week_number,
+        logger.debug(
+            "Generating day dates | current_week_number=%s | selected_display_week_number=%s",
+            current_week_number,
+            display_week_number,
         )
+        if current_week_number is None:
+            logger.debug("Skipping date generation: current_week_number is missing")
+        else:
+            attach_dates_to_week_days(
+                normalized_payload,
+                current_week_number,
+                display_week_number,
+                today=self._clock().date(),
+            )
         logger.debug(
             "Dates attached to week days | week_date_range=%s",
             normalized_payload.get("week_date_range", ""),
@@ -79,8 +109,8 @@ class ScheduleService:
         return image_bytes, filename, week_range
 
     async def _load_schedule_payload(self) -> tuple[int | None, dict]:
-        logger.debug("Loading schedule via UniversityClient")
-        async with self.client as client:
+        logger.debug("Loading schedule via timetable source")
+        async with self._timetable_source as client:
             result = await client.get_current_week_and_timetable()
         logger.debug("Schedule load finished")
         return result
@@ -97,29 +127,6 @@ class ScheduleService:
             current_week_number,
         )
         return TimetableParser.pick_week(payload, week_kind, current_week_number)
-
-    def _resolve_highlight_day_index(
-        self,
-        current_week_number: int | None,
-        selected_week_number: int,
-    ) -> int | None:
-        logger.debug(
-            "Resolving current-day highlight | current_week_number=%s | selected_week_number=%s",
-            current_week_number,
-            selected_week_number,
-        )
-
-        if current_week_number is None:
-            logger.debug("Skipping highlight: current_week_number is missing")
-            return None
-
-        if current_week_number != selected_week_number:
-            logger.debug("Skipping highlight: selected week is not the current week")
-            return None
-
-        day_index = self._get_current_day_index()
-        logger.debug("Highlighting day | day_index=%s", day_index)
-        return day_index
 
     def _normalize_week(
         self,
@@ -141,75 +148,9 @@ class ScheduleService:
 
     def _render_week(self, normalized_payload: dict) -> bytes:
         logger.debug("Sending payload to renderer")
-        return self.renderer.render(normalized_payload)
+        return self._image_renderer.render(normalized_payload)
 
     def _build_filename(self, week_number: int) -> str:
         filename = f"schedule_week_{week_number}.png"
         logger.debug("Built output filename | filename=%s", filename)
         return filename
-
-    def _get_current_day_index(self) -> int | None:
-        weekday = datetime.now().weekday()
-        result = weekday if 0 <= weekday <= 5 else None
-        logger.debug(
-            "Computed current day index | weekday=%s | result=%s", weekday, result
-        )
-        return result
-
-    def _attach_dates_to_days(
-        self,
-        normalized_payload: dict,
-        current_week_number: int | None,
-        selected_display_week_number: int,
-    ) -> None:
-        logger.debug(
-            "Generating day dates | current_week_number=%s | selected_display_week_number=%s",
-            current_week_number,
-            selected_display_week_number,
-        )
-
-        if current_week_number is None:
-            logger.debug("Skipping date generation: current_week_number is missing")
-            return
-
-        today = datetime.now().date()
-        current_monday = today - timedelta(days=today.weekday())
-
-        week_offset = selected_display_week_number - current_week_number
-        selected_monday = current_monday + timedelta(days=week_offset * 7)
-
-        logger.debug(
-            "Base dates computed | today=%s | current_monday=%s | selected_monday=%s | week_offset=%s",
-            today,
-            current_monday,
-            selected_monday,
-            week_offset,
-        )
-
-        for day_payload in normalized_payload.get("days", []):
-            day_index = day_payload.get("day_index")
-            if day_index is None:
-                logger.debug("Skipping day without day_index | payload=%s", day_payload)
-                continue
-
-            day_date = selected_monday + timedelta(days=day_index)
-            day_payload["date"] = day_date.strftime("%d.%m")
-
-            logger.debug(
-                "Date set for day | day_index=%s | date=%s",
-                day_index,
-                day_payload["date"],
-            )
-
-        normalized_payload["week_date_range"] = self._build_week_date_range(
-            selected_monday
-        )
-        logger.debug(
-            "Week date range set | week_date_range=%s",
-            normalized_payload["week_date_range"],
-        )
-
-    @staticmethod
-    def _build_week_date_range(week_monday) -> str:
-        week_saturday = week_monday + timedelta(days=5)
-        return f"{week_monday.strftime('%d.%m')} - {week_saturday.strftime('%d.%m')}"

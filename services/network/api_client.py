@@ -1,3 +1,5 @@
+"""JSON-запросы к API недели и расписания (поверх авторизованной сессии)."""
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +16,8 @@ logger = logging.getLogger("client")
 
 
 class UniversityApiClient:
+    """Клиент эндпоинтов current-week, timetable, autocomplete с повторной авторизацией при 401."""
+
     CURRENT_WEEK_API_URL = settings.current_week_api_url
     TIMETABLE_API_URL = settings.timetable_api_url
     AUTOCOMPLETE_API_URL = settings.autocomplete_api_url
