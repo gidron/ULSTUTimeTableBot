@@ -25,6 +25,9 @@ class Settings(BaseSettings):
 
     throttle_time: float = 5.0
 
+    # Максимум одновременных полных циклов «API + рендер PNG»; 0 = без лимита.
+    schedule_generation_concurrency: int = 8
+
     pg_database: str
     pg_password: str
     pg_host: str

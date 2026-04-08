@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import datetime
 
+from core.config import get_settings
 from services.data_parser import TimetableParser
 from services.image_renderer import ScheduleRenderer
 from services.network import UniversityClient
@@ -16,6 +19,29 @@ from services.schedule_week_dates import (
 )
 
 logger = logging.getLogger("default")
+
+_schedule_gen_limit_sem: asyncio.Semaphore | None = None
+
+
+def _get_schedule_gen_limit_sem() -> asyncio.Semaphore | None:
+    """Общий лимит параллельных генераций; None если лимит отключён (≤0)."""
+    global _schedule_gen_limit_sem
+    limit = get_settings().schedule_generation_concurrency
+    if limit <= 0:
+        return None
+    if _schedule_gen_limit_sem is None:
+        _schedule_gen_limit_sem = asyncio.Semaphore(limit)
+    return _schedule_gen_limit_sem
+
+
+@asynccontextmanager
+async def _schedule_generation_slot() -> AsyncIterator[None]:
+    sem = _get_schedule_gen_limit_sem()
+    if sem is None:
+        yield
+        return
+    async with sem:
+        yield
 
 
 class ScheduleService:
@@ -42,6 +68,10 @@ class ScheduleService:
         """Возвращает PNG, имя файла и строку диапазона дат. week_kind: 'current' | 'next'."""
         logger.info("Generating schedule image | week_kind=%s", week_kind)
 
+        async with _schedule_generation_slot():
+            return await self._get_week_image_impl(week_kind)
+
+    async def _get_week_image_impl(self, week_kind: str) -> tuple[bytes, str, str]:
         current_week_number, payload = await self._load_schedule_payload()
         logger.debug(
             "Schedule payload loaded | current_week_number=%s", current_week_number
@@ -96,7 +126,9 @@ class ScheduleService:
             normalized_payload.get("week_date_range", ""),
         )
 
-        image_bytes = self._render_week(normalized_payload)
+        image_bytes = await asyncio.to_thread(
+            self._render_week, normalized_payload
+        )
         filename = self._build_filename(display_week_number)
         week_range = normalized_payload.get("week_date_range", "")
 
