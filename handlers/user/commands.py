@@ -134,8 +134,7 @@ async def profile(message: Message):
         f"• {BT.CHANGE_GROUP} — указать или сменить учебную группу "
         f"(как в официальном расписании, например <code>УИДбд-21</code>).\n"
         f"{notify_bullet}\n"
-        f"• {BT.CONTACT_DEVELOPER} — отправить вопрос или сообщение разработчику "
-        f"(также команда /{CommandText.SUPPORT}).\n\n"
+        f"• {BT.CONTACT_DEVELOPER} — отправить вопрос или сообщение разработчику \n\n"
         "<i>Нажми нужную кнопку 👇</i>"
     )
     await message.answer(
