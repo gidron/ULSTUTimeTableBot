@@ -1,4 +1,5 @@
 from aiogram import Router
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 
@@ -44,6 +45,35 @@ async def remove_user(message: Message, command: CommandObject):
         await message.answer("Пользователь удален!")
     else:
         await message.answer("Такой tg_id не найден!")
+
+
+@router.message(IsAdminUser(), Command("broadcast"))
+async def broadcast(message: Message):
+    reply = message.reply_to_message
+    if reply is None:
+        await message.answer(
+            "Ответь этой командой на сообщение, которое нужно разослать "
+            "всем активным пользователям — бот отправит им его копию."
+        )
+        return
+
+    users = await User.filter(is_active=True)
+    ok = 0
+    failed = 0
+    for user in users:
+        try:
+            await message.bot.copy_message(
+                chat_id=int(user.tg_id),
+                from_chat_id=message.chat.id,
+                message_id=reply.message_id,
+            )
+            ok += 1
+        except (TelegramForbiddenError, TelegramBadRequest):
+            failed += 1
+
+    await message.answer(
+        f"Готово. Доставлено: <b>{ok}</b>, не удалось отправить: <b>{failed}</b>."
+    )
 
 
 @router.message(IsAdminUser(), Command("list"))

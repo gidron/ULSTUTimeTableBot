@@ -17,6 +17,8 @@ class Settings(BaseSettings):
 
     bot_link_text: str
 
+    developer_chat_id: int = 511952153
+
     request_timeout: float = 20.0
     verify_ssl: bool = True
     font_path: str | None = None

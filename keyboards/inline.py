@@ -22,6 +22,12 @@ def profile_inline_kb(notifications_enabled: bool) -> InlineKeyboardMarkup:
                     callback_data=CallbackConstants.TOGGLE_NOTIFICATIONS,
                 )
             ],
+            [
+                InlineKeyboardButton(
+                    text=BT.CONTACT_DEVELOPER,
+                    callback_data=CallbackConstants.CONTACT_DEVELOPER,
+                )
+            ],
         ]
     )
 

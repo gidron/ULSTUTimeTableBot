@@ -6,6 +6,7 @@ class ButtonText(StrEnum):
     CURRENT_WEEK = "Текущая неделя"
     NEXT_WEEK = "Следующая неделя"
     PROFILE = "⚙ Профиль"
+    CONTACT_DEVELOPER = "✉️ Написать разработчику"
     CHANGE_GROUP = "🛠 Изменить группу"
     ENABLE_NOTIFICATIONS = "🔔 Включить уведомления"
     DISABLE_NOTIFICATIONS = "🔕 Выключить уведомления"

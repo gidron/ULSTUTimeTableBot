@@ -23,7 +23,7 @@ async def _complete_group_setup(
     await user.save()
     await state.update_data(suggested_groups=None)
     await message.answer(
-        "Группа сохранена! В дальнейшем ты сможешь изменить ее в настройках.",
+        f"Группа <b>{group_name}</b> сохранена! В дальнейшем ты сможешь изменить ее в настройках.",
         reply_markup=main_menu_user_kb,
     )
     await state.set_state()

@@ -1,15 +1,19 @@
 from aiogram import F, Router
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandObject, CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, Message
 from aiogram.utils.chat_action import ChatActionSender
 
+from constants.commands import CommandText
+from core.config import get_settings
 from database.models import User, ScheduleSnapshot, ScheduleChangeDigest
+from handlers.user.state_handlers.contact_developer import prompt_contact_developer
 from keyboards.builders import accept_new_user_kb
 from keyboards.inline import profile_inline_kb
 from keyboards.reply import main_menu_user_kb
 from constants.buttons_text import ButtonText as BT
 from misc.states import SetGroupName
+from misc.user_admin_card import format_user_admin_card_html
 from services.data_parser import TimetableParseError
 from services.schedule_change_notifier import ScheduleChangeNotifier
 from services.schedule_service import ScheduleService
@@ -30,12 +34,15 @@ async def start(message: Message, state: FSMContext):
         user = await User.create(
             tg_id=tg_id, name=full_name, username=username, is_active=False
         )
+        settings = get_settings()
         await message.bot.send_message(
-            chat_id=511952153,
-            text=f"Новый пользователь!\n"
-            f"ID: <code>{tg_id}</code>\n"
-            f"Full name: {full_name}\n"
-            f"username: @{username}",
+            chat_id=settings.developer_chat_id,
+            text=format_user_admin_card_html(
+                title="Новый пользователь!",
+                tg_id=tg_id,
+                full_name=full_name,
+                username=username,
+            ),
             reply_markup=accept_new_user_kb(tg_id),
         )
 
@@ -54,14 +61,17 @@ async def start(message: Message, state: FSMContext):
 
 
 @router.message(F.text.in_([BT.CURRENT_WEEK, BT.NEXT_WEEK]))
-async def show_current_week(message: Message):
+@router.message(Command(CommandText.CURRENT_WEEK))
+@router.message(Command(CommandText.NEXT_WEEK))
+async def show_week(message: Message, command: CommandObject):
     tg_id = message.from_user.id
+    args = command.command
     user = await User.get(tg_id=tg_id)
 
     service = ScheduleService(user.group_name)
     message_to_delete = await message.answer("⏳ Расписание генерируется...")
 
-    if message.text == BT.CURRENT_WEEK:
+    if message.text == BT.CURRENT_WEEK or args == CommandText.CURRENT_WEEK:
         week_kind = "current"
         caption = "Текущая неделя"
     else:
@@ -96,11 +106,47 @@ async def show_current_week(message: Message):
 
 
 @router.message(F.text == BT.PROFILE)
+@router.message(Command(CommandText.PROFILE))
 async def profile(message: Message):
     user = await User.get(tg_id=message.from_user.id)
-    await message.answer(
-        "Выбери опцию:", reply_markup=profile_inline_kb(user.notify_by_change)
+    group_line = (
+        f"<b>{user.group_name}</b>"
+        if user.group_name
+        else "<i>не указана — без группы расписание недоступно</i>"
     )
+    if user.notify_by_change:
+        notify_bullet = (
+            f"• ⚠️ <b>[ТЕСТ]</b> {BT.DISABLE_NOTIFICATIONS} — отключить сообщения, когда на сайте "
+            "появится новая версия расписания твоей группы. "
+            "Сейчас уведомления <b>включены</b>."
+        )
+    else:
+        notify_bullet = (
+            f"• ️⚠️ <b>[ТЕСТ]</b> {BT.ENABLE_NOTIFICATIONS} — получать сообщения при обновлении "
+            "расписания на сайте для твоей группы. "
+            "Сейчас уведомления <b>выключены</b>."
+        )
+
+    text = (
+        "<b>⚙ Профиль</b>\n\n"
+        f"📚 <b>Группа</b>\n{group_line}\n\n"
+        "<b>Что делают кнопки ниже</b>\n"
+        f"• {BT.CHANGE_GROUP} — указать или сменить учебную группу "
+        f"(как в официальном расписании, например <code>УИДбд-21</code>).\n"
+        f"{notify_bullet}\n"
+        f"• {BT.CONTACT_DEVELOPER} — отправить вопрос или сообщение разработчику "
+        f"(также команда /{CommandText.SUPPORT}).\n\n"
+        "<i>Нажми нужную кнопку 👇</i>"
+    )
+    await message.answer(
+        text,
+        reply_markup=profile_inline_kb(user.notify_by_change),
+    )
+
+
+@router.message(Command(CommandText.SUPPORT))
+async def support_command(message: Message, state: FSMContext):
+    await prompt_contact_developer(message, state)
 
 
 @router.message(Command("id"))
