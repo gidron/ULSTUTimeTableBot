@@ -100,7 +100,7 @@ async def show_week(message: Message, command: CommandObject):
             )
 
             photo = BufferedInputFile(image_bytes, filename=filename)
-            await message.answer_photo(photo=photo, caption=caption)
+            await message.answer_photo(photo=photo, caption=caption, reply_markup=main_menu_user_kb)
 
     await message_to_delete.delete()
 
