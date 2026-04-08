@@ -63,15 +63,15 @@ async def start(message: Message, state: FSMContext):
 @router.message(F.text.in_([BT.CURRENT_WEEK, BT.NEXT_WEEK]))
 @router.message(Command(CommandText.CURRENT_WEEK))
 @router.message(Command(CommandText.NEXT_WEEK))
-async def show_week(message: Message, command: CommandObject):
+async def show_week(message: Message, command: CommandObject | None = None):
     tg_id = message.from_user.id
-    args = command.command
+    cmd = command.command if command else None
     user = await User.get(tg_id=tg_id)
 
     service = ScheduleService(user.group_name)
     message_to_delete = await message.answer("⏳ Расписание генерируется...")
 
-    if message.text == BT.CURRENT_WEEK or args == CommandText.CURRENT_WEEK:
+    if message.text == BT.CURRENT_WEEK or cmd == CommandText.CURRENT_WEEK:
         week_kind = "current"
         caption = "Текущая неделя"
     else:
