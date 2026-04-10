@@ -9,6 +9,7 @@ import httpx
 
 from core.config import get_settings
 from .exceptions import UniversityApiError, UniversityAuthError
+from .http_retry import request_with_retry
 from .session_provider import UniversitySessionProvider
 
 settings = get_settings()
@@ -27,8 +28,9 @@ class UniversityApiClient:
         session_provider: UniversitySessionProvider,
     ) -> None:
         self.session_provider = session_provider
+        self.group = session_provider.group
 
-        logger.debug("UniversityApiClient initialized")
+        logger.debug("UniversityApiClient initialized | group=%s", self.group)
 
     async def get_current_week(self) -> int:
         logger.debug("Requesting current week")
@@ -45,12 +47,12 @@ class UniversityApiClient:
             logger.exception("Invalid current-week response")
             raise UniversityApiError("Invalid current-week API response.") from exc
 
-    async def get_timetable(self, group: str) -> dict[str, Any]:
-        logger.debug("Requesting timetable | group=%s", group)
+    async def get_timetable(self) -> dict[str, Any]:
+        logger.debug("Requesting timetable | group=%s", self.group)
         data = await self._request_json(
             "GET",
             self.TIMETABLE_API_URL,
-            params={"filter": group.strip()},
+            params={"filter": self.group},
         )
 
         logger.debug(
@@ -87,8 +89,8 @@ class UniversityApiClient:
         logger.debug("Groups found | count=%s | groups=%s", len(result), result)
         return result
 
-    async def group_exists(self, group: str) -> bool:
-        normalized_group = group.strip()
+    async def group_exists(self) -> bool:
+        normalized_group = self.group.strip()
         logger.debug("Checking group existence | group_name=%s", normalized_group)
 
         groups = await self.find_groups(normalized_group)
@@ -102,12 +104,10 @@ class UniversityApiClient:
         )
         return exists
 
-    async def get_current_week_and_timetable(
-        self, group: str
-    ) -> tuple[int, dict[str, Any]]:
-        logger.info("Requesting current week and timetable | group=%s", group)
+    async def get_current_week_and_timetable(self) -> tuple[int, dict[str, Any]]:
+        logger.info("Requesting current week and timetable")
         current_week = await self.get_current_week()
-        timetable = await self.get_timetable(group)
+        timetable = await self.get_timetable()
         logger.info("Current week and timetable received successfully")
         return current_week, timetable
 
@@ -129,7 +129,8 @@ class UniversityApiClient:
 
         client = await self.session_provider.get_authorized_client()
 
-        response = await client.request(
+        response = await request_with_retry(
+            client,
             method,
             url,
             params=params,
@@ -157,7 +158,8 @@ class UniversityApiClient:
             await self.session_provider.refresh_authorization()
             client = await self.session_provider.get_authorized_client()
 
-            response = await client.request(
+            response = await request_with_retry(
+                client,
                 method,
                 url,
                 params=params,

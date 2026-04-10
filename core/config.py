@@ -15,15 +15,17 @@ class Settings(BaseSettings):
     current_week_api_url: str
     autocomplete_api_url: str
 
-    # Группа для GET HTML time.ulstu.ru при первичной авторизации (любая существующая).
-    timetable_auth_probe_group: str = "УИДбд-21"
-
     bot_link_text: str
 
     developer_chat_id: int = 511952153
 
     request_timeout: float = 20.0
     verify_ssl: bool = True
+
+    # Повторы при ConnectError / таймаутах (httpx к серверам УлГТУ).
+    http_transient_attempts: int = 4
+    http_retry_base_delay: float = 0.35
+
     font_path: str | None = None
 
     throttle_time: float = 5.0

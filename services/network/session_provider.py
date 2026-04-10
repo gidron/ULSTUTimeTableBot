@@ -9,17 +9,16 @@ import httpx
 
 from core.config import get_settings
 from .exceptions import UniversityAuthError
+from .http_retry import request_with_retry
 
 settings = get_settings()
 logger = logging.getLogger("client")
-
-_shared_session_provider: UniversitySessionProvider | None = None
 
 
 class UniversitySessionProvider:
     """Контекстный менеджер: при необходимости выполняет цикл логина и открытия страниц.
 
-    При ``shared=True`` выход из ``async with`` не закрывает httpx-клиент (общая сессия на процесс).
+    Один экземпляр на один цикл ``async with UniversityClient`` — клиент закрывается при выходе.
     """
 
     LOGIN_URL = settings.login_url
@@ -28,25 +27,24 @@ class UniversitySessionProvider:
 
     def __init__(
         self,
-        *,
+        group: str,
         login: str = settings.university_login,
         password: str = settings.university_password,
         timeout: float = settings.request_timeout,
-        shared: bool = False,
     ) -> None:
         self.login = login
         self.password = password
+        self.group = group
         self.timeout = timeout
-        self._shared = shared
 
         self._client: httpx.AsyncClient | None = None
         self._authorized = False
         self._auth_lock = asyncio.Lock()
 
         logger.debug(
-            "UniversitySessionProvider initialized | login=%s | shared=%s | timeout=%s",
+            "UniversitySessionProvider initialized | login=%s | group=%s | timeout=%s",
             self.login,
-            self._shared,
+            self.group,
             self.timeout,
         )
 
@@ -57,12 +55,10 @@ class UniversitySessionProvider:
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         logger.debug(
-            "Exiting UniversitySessionProvider context | exc_type=%s | shared=%s",
+            "Exiting UniversitySessionProvider context | exc_type=%s | exc=%s",
             exc_type,
-            self._shared,
+            exc,
         )
-        if self._shared:
-            return
         await self.close()
 
     async def close(self) -> None:
@@ -111,6 +107,7 @@ class UniversitySessionProvider:
         self._client = httpx.AsyncClient(
             timeout=self.timeout,
             follow_redirects=True,
+            verify=settings.verify_ssl,
             headers={
                 "User-Agent": (
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:148.0) "
@@ -131,7 +128,9 @@ class UniversitySessionProvider:
         self._client.cookies.clear()
         logger.debug("Cookie jar cleared")
 
-        login_response = await self._client.post(
+        login_response = await request_with_retry(
+            self._client,
+            "POST",
             self.LOGIN_URL,
             data={
                 "login": self.login,
@@ -159,7 +158,9 @@ class UniversitySessionProvider:
                 f"University login failed. HTTP {login_response.status_code}"
             )
 
-        home_response = await self._client.get(
+        home_response = await request_with_retry(
+            self._client,
+            "GET",
             self.HOME_URL,
             headers={
                 "Referer": "https://lk.ulstu.ru/?q=auth/login&r=q%3Dhome",
@@ -189,10 +190,11 @@ class UniversitySessionProvider:
                 "Authorization failed: home page does not look like an authenticated session."
             )
 
-        probe_group = settings.timetable_auth_probe_group
-        timetable_page_response = await self._client.get(
+        timetable_page_response = await request_with_retry(
+            self._client,
+            "GET",
             self.TIMETABLE_PAGE_URL,
-            params={"filter": probe_group},
+            params={"filter": self.group},
             headers={
                 "Referer": "https://lk.ulstu.ru/?q=home",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -200,10 +202,9 @@ class UniversitySessionProvider:
         )
 
         logger.debug(
-            "Timetable page response received | status_code=%s | final_url=%s | probe_group=%s",
+            "Timetable page response received | status_code=%s | final_url=%s",
             timetable_page_response.status_code,
             str(timetable_page_response.url),
-            probe_group,
         )
 
         if timetable_page_response.status_code != 200:
@@ -251,19 +252,3 @@ class UniversitySessionProvider:
         result = all(marker in html for marker in markers)
         logger.debug("Home page marker check result=%s", result)
         return result
-
-
-def get_shared_session_provider() -> UniversitySessionProvider:
-    """Один провайдер на процесс: не закрывается при ``async with UniversityClient``."""
-    global _shared_session_provider
-    if _shared_session_provider is None:
-        _shared_session_provider = UniversitySessionProvider(shared=True)
-    return _shared_session_provider
-
-
-async def close_shared_session_provider() -> None:
-    """Закрыть общий клиент (вызывать при остановке приложения)."""
-    global _shared_session_provider
-    if _shared_session_provider is not None:
-        await _shared_session_provider.close()
-        _shared_session_provider = None

@@ -15,7 +15,6 @@ from misc.routers import setup_routers
 from core.config import get_settings
 from core.logging import setup_logging
 from database.connection import init_database
-from services.network import close_shared_session_provider
 from services.schedule_change_notifier import ScheduleChangeNotifier
 
 logger = logging.getLogger("default")
@@ -41,20 +40,18 @@ async def main() -> None:
     dp.message.outer_middleware(ThrottlingMiddleware())
     dp.message.outer_middleware(CheckUserIsActiveMiddleware())
 
-    logger.info("Bot initialized, starting polling")
-
     await bot.delete_webhook(drop_pending_updates=True)
     notifier = ScheduleChangeNotifier()
     notifier_task = asyncio.create_task(notifier.run_forever(bot))
 
     try:
+        logger.info("Bot initialized, starting polling")
         await dp.start_polling(bot, close_bot_session=False)
     finally:
         logger.info("Shutting down bot")
         await dp.storage.close()
         notifier_task.cancel()
         await asyncio.gather(notifier_task, return_exceptions=True)
-        await close_shared_session_provider()
         await bot.session.close()
 
 

@@ -5,15 +5,14 @@ from __future__ import annotations
 import httpx
 
 from .api_client import UniversityApiClient
-from .session_provider import (
-    UniversitySessionProvider,
-    close_shared_session_provider,
-    get_shared_session_provider,
-)
+from .session_provider import UniversitySessionProvider
 
 
 class UniversityClient:
-    """Фасад: запросы API для учебной группы поверх общей сессии time.ulstu.ru."""
+    """Фасад: контекстный менеджер с авторизацией и методами API для группы.
+
+    Каждый экземпляр со своей httpx-сессией; после ``async with`` сессия закрывается.
+    """
 
     def __init__(
         self,
@@ -22,7 +21,9 @@ class UniversityClient:
         session_provider: UniversitySessionProvider | None = None,
     ) -> None:
         self._group_name = group_name.strip()
-        self.session_provider = session_provider or get_shared_session_provider()
+        self.session_provider = session_provider or UniversitySessionProvider(
+            group=self._group_name
+        )
 
     @property
     def group_name(self) -> str:
@@ -47,25 +48,23 @@ class UniversityClient:
 
     async def get_timetable(self) -> dict:
         client = UniversityApiClient(session_provider=self.session_provider)
-        return await client.get_timetable(self._group_name)
+        return await client.get_timetable()
 
     async def get_current_week_and_timetable(self) -> tuple[int, dict]:
         client = UniversityApiClient(session_provider=self.session_provider)
-        return await client.get_current_week_and_timetable(self._group_name)
+        return await client.get_current_week_and_timetable()
 
     async def group_exists(self):
         client = UniversityApiClient(session_provider=self.session_provider)
-        return await client.group_exists(self._group_name)
+        return await client.group_exists()
 
     async def find_groups(self):
         client = UniversityApiClient(session_provider=self.session_provider)
-        return await client.find_groups(self._group_name)
+        return await client.find_groups(self.session_provider.group)
 
 
 __all__ = [
     "UniversityApiClient",
     "UniversityClient",
     "UniversitySessionProvider",
-    "close_shared_session_provider",
-    "get_shared_session_provider",
 ]
