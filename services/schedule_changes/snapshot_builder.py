@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 
-from services.data_parser import TimetableParseError, TimetableParser
+from services.schedule.parser import TimetableParseError, TimetableParser
 from services.schedule_changes.models import LessonEntry
 
 logger = logging.getLogger("default")

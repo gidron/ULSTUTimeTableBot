@@ -27,6 +27,21 @@ def compute_highlight_day_index(
     return weekday if 0 <= weekday <= 5 else None
 
 
+def day_calendar_date(
+    day_index: int,
+    selected_week_number: int,
+    api_current_week: int,
+    *,
+    today: date | None = None,
+) -> date:
+    """Календарная дата для дня и номера учебной недели — та же геометрия, что у поля ``date`` на картинке."""
+    ref = today or date.today()
+    current_monday = ref - timedelta(days=ref.weekday())
+    week_offset = selected_week_number - api_current_week
+    selected_monday = current_monday + timedelta(days=week_offset * 7)
+    return selected_monday + timedelta(days=day_index)
+
+
 def attach_dates_to_week_days(
     normalized_payload: dict,
     current_week_number: int | None,

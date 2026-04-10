@@ -9,11 +9,12 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from core.config import get_settings
-from services.data_parser import TimetableParser
-from services.image_renderer import ScheduleRenderer
 from services.network import UniversityClient
-from services.ports import ScheduleImageRenderer, TimetableSource
-from services.schedule_week_dates import (
+
+from services.schedule.parser import TimetableParser
+from services.schedule.ports import ScheduleImageRenderer, TimetableSource
+from services.schedule.renderer import ScheduleRenderer
+from services.schedule.week_dates import (
     attach_dates_to_week_days,
     compute_highlight_day_index,
 )

@@ -14,9 +14,9 @@ from keyboards.reply import main_menu_user_kb
 from constants.buttons_text import ButtonText as BT
 from misc.states import SetGroupName
 from misc.user_admin_card import format_user_admin_card_html
-from services.data_parser import TimetableParseError
+from services.schedule import ScheduleService
+from services.schedule.parser import TimetableParseError
 from services.schedule_change_notifier import ScheduleChangeNotifier
-from services.schedule_service import ScheduleService
 
 router = Router(name="user_commands")
 

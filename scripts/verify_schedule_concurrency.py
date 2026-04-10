@@ -14,7 +14,7 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from services.schedule_service import ScheduleService  # noqa: E402
+from services.schedule import ScheduleService  # noqa: E402
 
 
 async def _fake_load(_self: ScheduleService):

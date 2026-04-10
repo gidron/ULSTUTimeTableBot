@@ -10,7 +10,7 @@ from typing import Iterable
 from PIL import Image, ImageDraw, ImageFont
 
 from core.config import get_settings
-from services.schedule_constants import PAIR_HEADERS, PAIR_TIMES, WEEKDAY_NAMES
+from services.schedule.constants import PAIR_HEADERS, PAIR_TIMES, WEEKDAY_NAMES
 
 logger = logging.getLogger("renderer")
 

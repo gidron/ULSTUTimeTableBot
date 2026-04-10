@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 from services.schedule_changes.models import LessonEntry
-from services.schedule_constants import pair_slot_start_time
+from services.schedule.constants import pair_slot_start_time
 
 
 def normalize_slot_list(slots: list[dict], api_current_week: int) -> list[dict]:

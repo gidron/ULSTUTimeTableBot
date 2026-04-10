@@ -108,17 +108,29 @@ class ScheduleChangeNotifier:
             return
 
         await repository.create_schedule_change_digest(group_name, digest=digest)
-        await self._notify_group_users(bot=bot, group_name=group_name, changes=changes)
+        await self._notify_group_users(
+            bot=bot,
+            group_name=group_name,
+            changes=changes,
+            api_current_week=current_week,
+        )
 
     async def _notify_group_users(
-        self, bot: Bot, group_name: str, changes: list[dict]
+        self,
+        bot: Bot,
+        group_name: str,
+        changes: list[dict],
+        *,
+        api_current_week: int,
     ) -> None:
         users = await repository.list_recipient_tg_ids(group_name)
         if not users:
             return
 
         text = message_renderer.render_schedule_change_message(
-            group_name=group_name, changes=changes
+            group_name=group_name,
+            changes=changes,
+            api_current_week=api_current_week,
         )
         for tg_id in users:
             try:
