@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import httpx
@@ -12,9 +13,14 @@ from .exceptions import UniversityAuthError
 settings = get_settings()
 logger = logging.getLogger("client")
 
+_shared_session_provider: UniversitySessionProvider | None = None
+
 
 class UniversitySessionProvider:
-    """Контекстный менеджер: при необходимости выполняет цикл логина и открытия страниц."""
+    """Контекстный менеджер: при необходимости выполняет цикл логина и открытия страниц.
+
+    При ``shared=True`` выход из ``async with`` не закрывает httpx-клиент (общая сессия на процесс).
+    """
 
     LOGIN_URL = settings.login_url
     HOME_URL = settings.home_url
@@ -22,23 +28,25 @@ class UniversitySessionProvider:
 
     def __init__(
         self,
-        group: str,
+        *,
         login: str = settings.university_login,
         password: str = settings.university_password,
         timeout: float = settings.request_timeout,
+        shared: bool = False,
     ) -> None:
         self.login = login
         self.password = password
-        self.group = group
         self.timeout = timeout
+        self._shared = shared
 
         self._client: httpx.AsyncClient | None = None
         self._authorized = False
+        self._auth_lock = asyncio.Lock()
 
         logger.debug(
-            "UniversitySessionProvider initialized | login=%s | group=%s | timeout=%s",
+            "UniversitySessionProvider initialized | login=%s | shared=%s | timeout=%s",
             self.login,
-            self.group,
+            self._shared,
             self.timeout,
         )
 
@@ -49,10 +57,12 @@ class UniversitySessionProvider:
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         logger.debug(
-            "Exiting UniversitySessionProvider context | exc_type=%s | exc=%s",
+            "Exiting UniversitySessionProvider context | exc_type=%s | shared=%s",
             exc_type,
-            exc,
+            self._shared,
         )
+        if self._shared:
+            return
         await self.close()
 
     async def close(self) -> None:
@@ -67,11 +77,15 @@ class UniversitySessionProvider:
 
         if self._authorized and self._has_time_session():
             logger.debug("Reusing existing authorized session")
-            return self._client
+            return self._client  # type: ignore[return-value]
 
         logger.info("Authorized session required, starting authorization")
-        await self._authorize()
-        return self._client
+        async with self._auth_lock:
+            if self._authorized and self._has_time_session():
+                logger.debug("Reusing existing authorized session after lock wait")
+                return self._client  # type: ignore[return-value]
+            await self._do_authorize()
+            return self._client  # type: ignore[return-value]
 
     async def get_time_session_cookie(self) -> str | None:
         client = await self.get_authorized_client()
@@ -87,7 +101,8 @@ class UniversitySessionProvider:
     async def refresh_authorization(self) -> None:
         logger.info("Refreshing authorization")
         await self._ensure_client()
-        await self._authorize()
+        async with self._auth_lock:
+            await self._do_authorize()
 
     async def _ensure_client(self) -> None:
         if self._client is not None:
@@ -107,7 +122,7 @@ class UniversitySessionProvider:
         )
         logger.debug("HTTP client created")
 
-    async def _authorize(self) -> None:
+    async def _do_authorize(self) -> None:
         assert self._client is not None
 
         logger.info("Starting authorization flow")
@@ -174,9 +189,10 @@ class UniversitySessionProvider:
                 "Authorization failed: home page does not look like an authenticated session."
             )
 
+        probe_group = settings.timetable_auth_probe_group
         timetable_page_response = await self._client.get(
             self.TIMETABLE_PAGE_URL,
-            params={"filter": self.group},
+            params={"filter": probe_group},
             headers={
                 "Referer": "https://lk.ulstu.ru/?q=home",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -184,9 +200,10 @@ class UniversitySessionProvider:
         )
 
         logger.debug(
-            "Timetable page response received | status_code=%s | final_url=%s",
+            "Timetable page response received | status_code=%s | final_url=%s | probe_group=%s",
             timetable_page_response.status_code,
             str(timetable_page_response.url),
+            probe_group,
         )
 
         if timetable_page_response.status_code != 200:
@@ -234,3 +251,19 @@ class UniversitySessionProvider:
         result = all(marker in html for marker in markers)
         logger.debug("Home page marker check result=%s", result)
         return result
+
+
+def get_shared_session_provider() -> UniversitySessionProvider:
+    """Один провайдер на процесс: не закрывается при ``async with UniversityClient``."""
+    global _shared_session_provider
+    if _shared_session_provider is None:
+        _shared_session_provider = UniversitySessionProvider(shared=True)
+    return _shared_session_provider
+
+
+async def close_shared_session_provider() -> None:
+    """Закрыть общий клиент (вызывать при остановке приложения)."""
+    global _shared_session_provider
+    if _shared_session_provider is not None:
+        await _shared_session_provider.close()
+        _shared_session_provider = None

@@ -15,6 +15,7 @@ from misc.routers import setup_routers
 from core.config import get_settings
 from core.logging import setup_logging
 from database.connection import init_database
+from services.network import close_shared_session_provider
 from services.schedule_change_notifier import ScheduleChangeNotifier
 
 logger = logging.getLogger("default")
@@ -50,9 +51,10 @@ async def main() -> None:
         await dp.start_polling(bot, close_bot_session=False)
     finally:
         logger.info("Shutting down bot")
+        await dp.storage.close()
         notifier_task.cancel()
         await asyncio.gather(notifier_task, return_exceptions=True)
-        await dp.storage.close()
+        await close_shared_session_provider()
         await bot.session.close()
 
 
@@ -62,7 +64,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("Bot stopped successfully")
     except ConnectionError as exc:
-        logger.error("Failed to connect to Redis | error=%s", exc)
+        logger.error("Failed during connection | error=%s", exc)
         raise SystemExit(1) from exc
     except (TelegramNetworkError, SystemExit) as e:
         logger.warning("Bot stopped due to error | error=%s", e)

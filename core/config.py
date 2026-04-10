@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     current_week_api_url: str
     autocomplete_api_url: str
 
+    # Группа для GET HTML time.ulstu.ru при первичной авторизации (любая существующая).
+    timetable_auth_probe_group: str = "УИДбд-21"
+
     bot_link_text: str
 
     developer_chat_id: int = 511952153
