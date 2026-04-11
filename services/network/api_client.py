@@ -89,6 +89,26 @@ class UniversityApiClient:
         logger.debug("Groups found | count=%s | groups=%s", len(result), result)
         return result
 
+    async def find_teachers(self, value: str) -> list[str]:
+        logger.debug("Finding teachers via autocomplete | value=%s", value)
+        data = await self.autocomplete(value)
+
+        try:
+            teachers = data["response"]["teachers"]
+        except (KeyError, TypeError) as exc:
+            logger.exception("Invalid autocomplete response structure for teachers")
+            raise UniversityApiError("Invalid autocomplete API response.") from exc
+
+        if not isinstance(teachers, list):
+            logger.error("Autocomplete teachers is not a list")
+            raise UniversityApiError(
+                "Invalid teachers format in autocomplete response."
+            )
+
+        result = [str(t).strip() for t in teachers if str(t).strip()]
+        logger.debug("Teachers found | count=%s", len(result))
+        return result
+
     async def group_exists(self) -> bool:
         normalized_group = self.group.strip()
         logger.debug("Checking group existence | group_name=%s", normalized_group)

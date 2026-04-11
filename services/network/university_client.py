@@ -61,3 +61,7 @@ class UniversityClient:
     async def find_groups(self):
         client = UniversityApiClient(session_provider=self.session_provider)
         return await client.find_groups(self.session_provider.group)
+
+    async def find_teachers(self):
+        client = UniversityApiClient(session_provider=self.session_provider)
+        return await client.find_teachers(self.session_provider.group)

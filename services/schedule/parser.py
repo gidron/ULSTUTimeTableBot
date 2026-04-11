@@ -95,6 +95,8 @@ class TimetableParser:
         *,
         group_name: str,
         highlight_day_index: int | None = None,
+        schedule_title_prefix: str = "Расписание группы:",
+        include_study_group_in_slots: bool = False,
     ) -> dict:
         logger.debug(
             "Normalizing week | week_number=%s | group_name=%s | highlight_day_index=%s",
@@ -127,7 +129,10 @@ class TimetableParser:
                 lesson_entries = (
                     lessons[slot_index] if slot_index < len(lessons) else []
                 )
-                slot_text = TimetableParser._format_slot(lesson_entries)
+                slot_text = TimetableParser._format_slot(
+                    lesson_entries,
+                    include_study_group_in_slots=include_study_group_in_slots,
+                )
                 normalized_slots.append(slot_text)
 
             normalized_days.append(
@@ -140,6 +145,7 @@ class TimetableParser:
 
         result = {
             "group_name": group_name,
+            "schedule_title_prefix": schedule_title_prefix,
             "week_number": week_number,
             "days": normalized_days,
         }
@@ -147,7 +153,11 @@ class TimetableParser:
         return result
 
     @staticmethod
-    def _format_slot(lesson_entries: Iterable[dict]) -> str:
+    def _format_slot(
+        lesson_entries: Iterable[dict],
+        *,
+        include_study_group_in_slots: bool = False,
+    ) -> str:
         entries = list(lesson_entries or [])
         logger.debug("Formatting slot | entries_count=%s", len(entries))
 
@@ -159,8 +169,14 @@ class TimetableParser:
             lesson = item.get("nameOfLesson", "").strip()
             teacher = item.get("teacher", "").strip()
             room = item.get("room", "").strip()
+            study_group = item.get("group", "").strip()
 
-            line = "\n".join(part for part in [lesson, teacher, room] if part)
+            if include_study_group_in_slots and study_group:
+                parts = [study_group, lesson, teacher, room]
+            else:
+                parts = [lesson, teacher, room]
+
+            line = "\n".join(part for part in parts if part)
             if line:
                 lines.append(line)
 

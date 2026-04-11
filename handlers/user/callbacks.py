@@ -6,11 +6,14 @@ from aiogram.types import CallbackQuery
 from constants.callbacks import CallbackConstants
 from database.models import User
 from handlers.user.state_handlers.set_group_name import SET_GROUP_PROMPT
+from handlers.user.state_handlers.teacher_schedule import (
+    prompt_teacher_schedule,
+)
 from keyboards.inline import profile_inline_kb
 from keyboards.factories import AcceptNewUserCallback
 from keyboards.reply import cancel_kb
 from handlers.user.state_handlers.contact_developer import prompt_contact_developer
-from misc.states import SetGroupName
+from misc.states import SetGroupName, TeacherSchedule
 
 router = Router(name="user_callbacks")
 
@@ -26,6 +29,21 @@ async def set_group_name(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await callback.message.answer(SET_GROUP_PROMPT, reply_markup=cancel_kb)
     await state.set_state(SetGroupName.group_name)
+
+
+@router.callback_query(default_state, F.data == CallbackConstants.TEACHER_SCHEDULE)
+async def teacher_schedule_entry(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await prompt_teacher_schedule(callback.message, state)
+
+
+@router.callback_query(
+    TeacherSchedule.teacher_query, F.data == CallbackConstants.TEACHER_SCHEDULE
+)
+async def teacher_schedule_repeat(callback: CallbackQuery, state: FSMContext):
+    """Повторное нажатие кнопки в профиле во время ввода — обновляем подсказку."""
+    await callback.answer()
+    await prompt_teacher_schedule(callback.message, state)
 
 
 @router.callback_query(default_state, F.data == CallbackConstants.TOGGLE_NOTIFICATIONS)

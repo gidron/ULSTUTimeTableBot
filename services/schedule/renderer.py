@@ -120,7 +120,7 @@ class ScheduleRenderer:
             [(0, y1), (self._canvas_width - 1, y2)], outline=GRID_LINE, width=1, fill=BG
         )
 
-        left_label = "Расписание группы:"
+        left_label = week_payload.get("schedule_title_prefix", "Расписание группы:")
         left_group = f" {week_payload['group_name']}"
 
         label_bbox = draw.textbbox((0, 0), left_label, font=self.font_title)

@@ -8,6 +8,7 @@ class ButtonText(StrEnum):
     PROFILE = "⚙ Профиль"
     CONTACT_DEVELOPER = "✉️ Написать разработчику"
     CHANGE_GROUP = "🛠 Изменить группу"
+    TEACHER_SCHEDULE = "👤 Расписание преподавателя"
     ENABLE_NOTIFICATIONS = "🔔 Включить уведомления"
     DISABLE_NOTIFICATIONS = "🔕 Выключить уведомления"
     DEATH = "💀"

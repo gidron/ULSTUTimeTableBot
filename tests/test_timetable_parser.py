@@ -81,6 +81,7 @@ def test_normalize_week_empty_slots_and_highlight() -> None:
         "3", week_data, group_name="ИВТ-101", highlight_day_index=2
     )
     assert out["group_name"] == "ИВТ-101"
+    assert out["schedule_title_prefix"] == "Расписание группы:"
     assert out["week_number"] == "3"
     assert len(out["days"]) == 6
     assert out["days"][2]["is_current_day"] is True
@@ -88,6 +89,49 @@ def test_normalize_week_empty_slots_and_highlight() -> None:
     for d in out["days"]:
         assert len(d["slots"]) == 8
         assert all(s == "" for s in d["slots"])
+
+
+def test_normalize_week_custom_title_prefix() -> None:
+    week_data = {"days": []}
+    out = TimetableParser.normalize_week(
+        "1",
+        week_data,
+        group_name="Иванов И И",
+        schedule_title_prefix="Расписание преподавателя:",
+    )
+    assert out["schedule_title_prefix"] == "Расписание преподавателя:"
+
+
+def test_normalize_week_teacher_mode_puts_group_before_lesson() -> None:
+    week_data = {
+        "days": [
+            {
+                "day": 0,
+                "lessons": [
+                    [
+                        {
+                            "group": "УИДбд-21",
+                            "nameOfLesson": "пр. Менеджмент",
+                            "teacher": "Волкова Е А",
+                            "room": "2-223",
+                        }
+                    ],
+                ]
+                + [[] for _ in range(7)],
+            }
+        ]
+    }
+    out = TimetableParser.normalize_week(
+        "0",
+        week_data,
+        group_name="Волкова Е А",
+        include_study_group_in_slots=True,
+    )
+    slot0 = out["days"][0]["slots"][0]
+    lines = slot0.split("\n")
+    assert lines[0] == "УИДбд-21"
+    assert "Менеджмент" in slot0
+    assert "Волкова" in slot0
 
 
 def test_normalize_week_formats_slot() -> None:

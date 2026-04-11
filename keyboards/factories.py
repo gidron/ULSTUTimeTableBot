@@ -8,3 +8,7 @@ class AcceptNewUserCallback(CallbackData, prefix="accept_new_user"):
 
 class PickSuggestedGroupCallback(CallbackData, prefix="pick_sgrp"):
     index: int
+
+
+class PickSuggestedTeacherCallback(CallbackData, prefix="pick_stchr"):
+    index: int

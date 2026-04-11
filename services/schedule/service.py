@@ -55,9 +55,13 @@ class ScheduleService:
         timetable_source: TimetableSource | None = None,
         image_renderer: ScheduleImageRenderer | None = None,
         clock: Callable[[], datetime] | None = None,
+        schedule_title_prefix: str = "Расписание группы:",
+        include_study_group_in_slots: bool = False,
     ) -> None:
         """По умолчанию — UniversityClient, ScheduleRenderer и datetime.now."""
         self.group_name = group_name
+        self._schedule_title_prefix = schedule_title_prefix
+        self._include_study_group_in_slots = include_study_group_in_slots
         self._timetable_source = timetable_source or UniversityClient(
             group_name=group_name
         )
@@ -177,6 +181,8 @@ class ScheduleService:
             week_data=week_data,
             group_name=self.group_name,
             highlight_day_index=highlight_day_index,
+            schedule_title_prefix=self._schedule_title_prefix,
+            include_study_group_in_slots=self._include_study_group_in_slots,
         )
 
     def _render_week(self, normalized_payload: dict) -> bytes:
