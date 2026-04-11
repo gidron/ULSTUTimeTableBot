@@ -7,7 +7,7 @@ aiosignal==1.4.0
 aiosqlite==0.22.1
 annotated-types==0.7.0
 anyio==4.12.1
-asyncclick==8.3.0.7
+asyncclick==8.3.0.3
 asyncpg==0.30.0
 attrs==25.4.0
 cachetools==7.0.3

@@ -31,9 +31,9 @@ async def main() -> None:
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    redis_instance = Redis(host=settings.redis_host, port=int(settings.redis_port))
-    storage = RedisStorage(redis_instance)
-    dp = Dispatcher(storage=storage)
+    # redis_instance = Redis(host=settings.redis_host, port=int(settings.redis_port))
+    # storage = RedisStorage(redis_instance)
+    dp = Dispatcher()
     dp.include_router(setup_routers())
 
     dp.message.middleware(LastUserActivityMiddleware())
@@ -51,7 +51,7 @@ async def main() -> None:
         logger.info("Shutting down bot")
         await dp.storage.close()
         notifier_task.cancel()
-        await asyncio.gather(notifier_task, return_exceptions=True)
+        # await asyncio.gather(notifier_task, return_exceptions=True)
         await bot.session.close()
 
 

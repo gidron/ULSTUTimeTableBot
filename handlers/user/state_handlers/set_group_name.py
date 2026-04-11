@@ -6,7 +6,7 @@ from aiogram.utils.chat_action import ChatActionSender
 from database.models import User
 from keyboards.factories import PickSuggestedGroupCallback
 from keyboards.inline import group_suggestions_inline_kb
-from keyboards.reply import main_menu_user_kb
+from keyboards.reply import main_menu_user_kb, cancel_kb
 from misc.states import SetGroupName
 from constants.buttons_text import ButtonText as BT
 from services.network import UniversityClient
@@ -14,6 +14,14 @@ from services.network import UniversityClient
 
 router = Router(name="user_state_handlers_register_user_form")
 
+SET_GROUP_PROMPT = (
+    "Введи название группы.\n"
+    "Пример - <code>УИДбд-21</code>"""
+)
+
+async def prompt_set_group(message: Message, state: FSMContext) -> None:
+    await state.set_state(SetGroupName.group_name)
+    await message.answer(SET_GROUP_PROMPT, reply_markup=cancel_kb)
 
 async def _complete_group_setup(
     message: Message, tg_id: int, group_name: str, state: FSMContext
@@ -57,7 +65,6 @@ async def pick_suggested_group(
     await _complete_group_setup(
         callback.message, callback.from_user.id, group_name, state
     )
-
 
 @router.message(SetGroupName.group_name, F.text)
 async def user_set_group_name(message: Message, state: FSMContext):

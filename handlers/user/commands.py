@@ -6,8 +6,9 @@ from aiogram.utils.chat_action import ChatActionSender
 
 from constants.commands import CommandText
 from core.config import get_settings
-from database.models import User, ScheduleSnapshot, ScheduleChangeDigest
+from database.models import User
 from handlers.user.state_handlers.contact_developer import prompt_contact_developer
+from handlers.user.state_handlers.set_group_name import prompt_set_group
 from keyboards.builders import accept_new_user_kb
 from keyboards.inline import profile_inline_kb
 from keyboards.reply import main_menu_user_kb
@@ -16,7 +17,7 @@ from misc.states import SetGroupName
 from misc.user_admin_card import format_user_admin_card_html
 from services.schedule import ScheduleService
 from services.schedule.parser import TimetableParseError
-from services.schedule_change_notifier import ScheduleChangeNotifier
+from services.schedule_changes.demo_changes import build_demo_notify_message
 
 router = Router(name="user_commands")
 
@@ -153,38 +154,19 @@ async def get_id(message: Message):
     return await message.answer(str(message.from_user.id))
 
 
-@router.message(Command("test_notify_run"))
-async def test_notify_run(message: Message):
+@router.message(Command("preview_notify"))
+async def preview_notify(message: Message):
+    """Случайные «старый/новый» слепки → тот же текст, что у реального уведомления."""
     user = await User.get_or_none(tg_id=message.from_user.id)
     if user is None or not user.is_admin:
         await message.answer("Команда доступна только администратору.")
         return
 
-    await message.answer("Запускаю проверку уведомлений вручную...")
-    notifier = ScheduleChangeNotifier()
-    await notifier.check_and_notify(message.bot)
-    await message.answer("Проверка завершена.")
+    group = (user.group_name or "Демо-группа").strip()
+    text = build_demo_notify_message(group)
+    await message.answer(text)
 
 
-@router.message(Command("test_notify_reset"))
-async def test_notify_reset(message: Message):
-    user = await User.get_or_none(tg_id=message.from_user.id)
-    if user is None or not user.is_admin:
-        await message.answer("Команда доступна только администратору.")
-        return
-
-    if not user.group_name:
-        await message.answer("У вас не указана группа.")
-        return
-
-    deleted_snapshot = await ScheduleSnapshot.filter(
-        group_name=user.group_name
-    ).delete()
-    deleted_digests = await ScheduleChangeDigest.filter(
-        group_name=user.group_name
-    ).delete()
-    await message.answer(
-        f"Сброс выполнен для группы {user.group_name}:\n"
-        f"- snapshot: {deleted_snapshot}\n"
-        f"- digests: {deleted_digests}"
-    )
+@router.message(Command(CommandText.SET_GROUP))
+async def set_group_command(message: Message, state: FSMContext):
+    await prompt_set_group(message, state)

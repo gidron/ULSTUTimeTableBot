@@ -5,6 +5,7 @@ from aiogram.types import CallbackQuery
 
 from constants.callbacks import CallbackConstants
 from database.models import User
+from handlers.user.state_handlers.set_group_name import SET_GROUP_PROMPT
 from keyboards.inline import profile_inline_kb
 from keyboards.factories import AcceptNewUserCallback
 from keyboards.reply import cancel_kb
@@ -23,7 +24,7 @@ async def contact_developer(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(default_state, F.data == CallbackConstants.SET_GROUP_NAME)
 async def set_group_name(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    await callback.message.answer("Введи название группы.\nПример - <b>УИДбд-21</b>", reply_markup=cancel_kb)
+    await callback.message.answer(SET_GROUP_PROMPT, reply_markup=cancel_kb)
     await state.set_state(SetGroupName.group_name)
 
 

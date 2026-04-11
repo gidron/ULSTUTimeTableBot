@@ -1,3 +1,8 @@
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
 [tool.aerich]
 tortoise_orm = "database.connection.TORTOISE_ORM_CONFIG"
 location = "./database/migrations"

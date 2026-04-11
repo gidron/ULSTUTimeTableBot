@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from services.schedule.parser import TimetableParseError, TimetableParser
-from services.schedule.renderer import ScheduleRenderer
-from services.schedule.service import ScheduleService
 
 __all__ = [
     "ScheduleService",
@@ -12,3 +10,15 @@ __all__ = [
     "TimetableParseError",
     "TimetableParser",
 ]
+
+
+def __getattr__(name: str):
+    if name == "ScheduleRenderer":
+        from services.schedule.renderer import ScheduleRenderer
+
+        return ScheduleRenderer
+    if name == "ScheduleService":
+        from services.schedule.service import ScheduleService
+
+        return ScheduleService
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
