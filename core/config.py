@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     redis_host: str
     redis_port: int
 
+    # Кэш PNG расписания в Redis (ключ: группа + scope + неделя + дата в schedule_timezone).
+    schedule_cache_enabled: bool = True
+    schedule_cache_ttl_seconds: int = 3600
+    schedule_cache_key_prefix: str = "schedule_png"
+    # IANA, например Europe/Samara — даты и подсветка «сегодня»; None = datetime.now() как раньше.
+    schedule_timezone: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

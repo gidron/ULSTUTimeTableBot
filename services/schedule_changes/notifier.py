@@ -15,6 +15,7 @@ from services.schedule_changes import (
     message_renderer,
     repository,
 )
+from services.schedule.redis_cache import invalidate_group_schedule_cache
 from services.schedule_changes import snapshot_builder
 
 logger = logging.getLogger("default")
@@ -99,6 +100,8 @@ class ScheduleChangeNotifier:
         if not changes:
             logger.info("No schedule changes | group=%s", group_name)
             return
+
+        await invalidate_group_schedule_cache(group_name)
 
         digest = hashing.hash_payload(changes)
         if await repository.schedule_change_digest_exists(digest):

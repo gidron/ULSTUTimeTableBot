@@ -7,12 +7,18 @@ import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from core.config import get_settings
+from core.redis import get_redis
 from services.network import UniversityClient
 
 from services.schedule.parser import TimetableParser
 from services.schedule.ports import ScheduleImageRenderer, TimetableSource
+from services.schedule.redis_cache import (
+    get_cached_schedule_image,
+    set_cached_schedule_image,
+)
 from services.schedule.renderer import ScheduleRenderer
 from services.schedule.week_dates import (
     attach_dates_to_week_days,
@@ -69,12 +75,50 @@ class ScheduleService:
         self._clock = clock or datetime.now
         logger.debug("ScheduleService initialized | group_name=%s", group_name)
 
+    def _schedule_reference(self) -> datetime:
+        """Момент «сейчас» для подсветки дня и дат; при schedule_timezone — в этой зоне."""
+        tz = get_settings().schedule_timezone
+        if tz:
+            return datetime.now(ZoneInfo(tz))
+        return self._clock()
+
+    def _schedule_cache_scope(self) -> str:
+        """Разделение кэша группы и расписания преподавателя (разная вёрстка)."""
+        return "teacher" if self._include_study_group_in_slots else "group"
+
     async def get_week_image(self, week_kind: str) -> tuple[bytes, str, str]:
         """Возвращает PNG, имя файла и строку диапазона дат. week_kind: 'current' | 'next'."""
         logger.info("Generating schedule image | week_kind=%s", week_kind)
 
+        settings = get_settings()
+        if settings.schedule_cache_enabled and get_redis() is not None:
+            local_date = self._schedule_reference().date()
+            scope = self._schedule_cache_scope()
+            cached = await get_cached_schedule_image(
+                self.group_name, week_kind, local_date, scope
+            )
+            if cached is not None:
+                logger.info("Schedule image cache hit | week_kind=%s", week_kind)
+                return cached
+
         async with _schedule_generation_slot():
-            return await self._get_week_image_impl(week_kind)
+            result = await self._get_week_image_impl(week_kind)
+
+        if settings.schedule_cache_enabled and get_redis() is not None:
+            local_date = self._schedule_reference().date()
+            scope = self._schedule_cache_scope()
+            image_bytes, filename, week_range = result
+            await set_cached_schedule_image(
+                self.group_name,
+                week_kind,
+                local_date,
+                scope,
+                image_bytes,
+                filename,
+                week_range,
+            )
+
+        return result
 
     async def _get_week_image_impl(self, week_kind: str) -> tuple[bytes, str, str]:
         current_week_number, payload = await self._load_schedule_payload()
@@ -92,10 +136,11 @@ class ScheduleService:
             week_kind,
         )
 
+        ref = self._schedule_reference()
         highlight_day_index = compute_highlight_day_index(
             current_week_number,
             display_week_number,
-            reference=self._clock(),
+            reference=ref,
         )
         logger.debug(
             "Resolved highlight day index | highlight_day_index=%s", highlight_day_index
@@ -124,7 +169,7 @@ class ScheduleService:
                 normalized_payload,
                 current_week_number,
                 display_week_number,
-                today=self._clock().date(),
+                today=ref.date(),
             )
         logger.debug(
             "Dates attached to week days | week_date_range=%s",
