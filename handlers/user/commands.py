@@ -5,6 +5,7 @@ from aiogram.types import BufferedInputFile, Message
 from aiogram.utils.chat_action import ChatActionSender
 
 from constants.commands import CommandText
+from constants.schedule_layout import parse_schedule_layout
 from core.config import get_settings
 from database.models import User
 from handlers.user.state_handlers.contact_developer import prompt_contact_developer
@@ -69,6 +70,7 @@ async def show_week(message: Message, command: CommandObject | None = None):
     cmd = command.command if command else None
     user = await User.get(tg_id=tg_id)
 
+    layout = parse_schedule_layout(user.schedule_layout)
     service = ScheduleService(user.group_name)
     message_to_delete = await message.answer("⏳ Расписание генерируется...")
 
@@ -83,7 +85,9 @@ async def show_week(message: Message, command: CommandObject | None = None):
         bot=message.bot, chat_id=message.chat.id, initial_sleep=0.5
     ):
         try:
-            image_bytes, filename, week_range = await service.get_week_image(week_kind)
+            image_bytes, filename, week_range = await service.get_week_image(
+                week_kind, layout=layout
+            )
         except TimetableParseError:
             await message.answer(
                 "Расписание для указанной недели пока что отсутствует.\n"
@@ -137,12 +141,17 @@ async def profile(message: Message):
         f"• {BT.TEACHER_SCHEDULE} — посмотреть расписание преподавателя на текущую и "
         "следующую неделю (поиск по фамилии и инициалам, как на сайте).\n"
         f"{notify_bullet}\n"
-        f"• {BT.CONTACT_DEVELOPER} — отправить вопрос или сообщение разработчику \n\n"
+        f"• {BT.CONTACT_DEVELOPER} — отправить вопрос или сообщение разработчику \n"
+        "• Кнопка с 📅 — как показывать расписание: дни строками (как раньше в боте) "
+        "или столбцами (как на сайте УлГТУ).\n\n"
         "<i>Нажми нужную кнопку 👇</i>"
     )
     await message.answer(
         text,
-        reply_markup=profile_inline_kb(user.notify_by_change),
+        reply_markup=profile_inline_kb(
+            user.notify_by_change,
+            parse_schedule_layout(user.schedule_layout),
+        ),
     )
 
 

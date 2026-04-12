@@ -164,22 +164,82 @@ class TimetableParser:
         if not entries:
             return ""
 
+        groups: list[str] = []
+        for item in entries:
+            g = (item.get("group") or "").strip()
+            if g and g not in groups:
+                groups.append(g)
+
+        def _student_block(item: dict) -> str:
+            lesson = (item.get("nameOfLesson") or "").strip()
+            teacher = (item.get("teacher") or "").strip()
+            room = (item.get("room") or "").strip()
+            parts = [lesson, teacher, room]
+            return "\n".join(p for p in parts if p)
+
+        def _teacher_block(item: dict) -> str:
+            """Расписание преподавателя: в ячейке не дублируем ФИО преподавателя."""
+            lesson = (item.get("nameOfLesson") or "").strip()
+            room = (item.get("room") or "").strip()
+            parts = [lesson, room]
+            return "\n".join(p for p in parts if p)
+
+        def _dedupe_blocks(blocks: list[str]) -> list[str]:
+            """Одинаковые блоки (общая пара для нескольких групп в API) — один раз."""
+            seen: set[str] = set()
+            out: list[str] = []
+            for b in blocks:
+                if not b or b in seen:
+                    continue
+                seen.add(b)
+                out.append(b)
+            return out
+
+        if include_study_group_in_slots:
+            blocks = _dedupe_blocks([_teacher_block(e) for e in entries])
+
+            if len(groups) >= 2:
+                head = " ".join(groups)
+                body = "\n\n".join(blocks)
+                result = f"{head}\n\n{body}" if body else head
+                logger.debug("Slot text built (teacher, multi-group) | text_length=%s", len(result))
+                return result
+
+            if len(entries) == 1:
+                item = entries[0]
+                sg = (item.get("group") or "").strip()
+                lesson = (item.get("nameOfLesson") or "").strip()
+                room = (item.get("room") or "").strip()
+                parts = [sg, lesson, room]
+                result = "\n".join(p for p in parts if p)
+                logger.debug("Slot text built (teacher, single) | text_length=%s", len(result))
+                return result
+
+            if len(groups) == 1:
+                head = groups[0]
+                body = "\n\n".join(blocks)
+                result = f"{head}\n\n{body}" if body else head
+                logger.debug("Slot text built (teacher, one group) | text_length=%s", len(result))
+                return result
+
+            result = "\n\n".join(blocks)
+            logger.debug("Slot text built (teacher, no groups) | text_length=%s", len(result))
+            return result
+
+        if len(groups) >= 2:
+            blocks = _dedupe_blocks([_student_block(e) for e in entries])
+            head = " ".join(groups)
+            body = "\n\n".join(blocks)
+            result = f"{head}\n\n{body}" if body else head
+            logger.debug("Slot text built (student, multi-group header) | text_length=%s", len(result))
+            return result
+
         lines: list[str] = []
         for item in entries:
-            lesson = item.get("nameOfLesson", "").strip()
-            teacher = item.get("teacher", "").strip()
-            room = item.get("room", "").strip()
-            study_group = item.get("group", "").strip()
-
-            if include_study_group_in_slots and study_group:
-                parts = [study_group, lesson, teacher, room]
-            else:
-                parts = [lesson, teacher, room]
-
-            line = "\n".join(part for part in parts if part)
+            line = _student_block(item)
             if line:
                 lines.append(line)
 
-        result = "\n\n".join(lines)
+        result = "\n\n".join(_dedupe_blocks(lines))
         logger.debug("Slot text built | text_length=%s", len(result))
         return result

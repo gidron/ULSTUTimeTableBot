@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from constants.schedule_layout import ScheduleLayout
 from core.config import get_settings
 from core.redis import get_redis
 from services.network import UniversityClient
@@ -86,23 +87,33 @@ class ScheduleService:
         """Разделение кэша группы и расписания преподавателя (разная вёрстка)."""
         return "teacher" if self._include_study_group_in_slots else "group"
 
-    async def get_week_image(self, week_kind: str) -> tuple[bytes, str, str]:
+    async def get_week_image(
+        self,
+        week_kind: str,
+        *,
+        layout: ScheduleLayout = ScheduleLayout.HORIZONTAL,
+    ) -> tuple[bytes, str, str]:
         """Возвращает PNG, имя файла и строку диапазона дат. week_kind: 'current' | 'next'."""
-        logger.info("Generating schedule image | week_kind=%s", week_kind)
+        logger.info(
+            "Generating schedule image | week_kind=%s | layout=%s",
+            week_kind,
+            layout.value,
+        )
 
+        layout_key = layout.value
         settings = get_settings()
         if settings.schedule_cache_enabled and get_redis() is not None:
             local_date = self._schedule_reference().date()
             scope = self._schedule_cache_scope()
             cached = await get_cached_schedule_image(
-                self.group_name, week_kind, local_date, scope
+                self.group_name, week_kind, local_date, scope, layout_key
             )
             if cached is not None:
                 logger.info("Schedule image cache hit | week_kind=%s", week_kind)
                 return cached
 
         async with _schedule_generation_slot():
-            result = await self._get_week_image_impl(week_kind)
+            result = await self._get_week_image_impl(week_kind, layout=layout)
 
         if settings.schedule_cache_enabled and get_redis() is not None:
             local_date = self._schedule_reference().date()
@@ -113,6 +124,7 @@ class ScheduleService:
                 week_kind,
                 local_date,
                 scope,
+                layout_key,
                 image_bytes,
                 filename,
                 week_range,
@@ -120,7 +132,9 @@ class ScheduleService:
 
         return result
 
-    async def _get_week_image_impl(self, week_kind: str) -> tuple[bytes, str, str]:
+    async def _get_week_image_impl(
+        self, week_kind: str, *, layout: ScheduleLayout
+    ) -> tuple[bytes, str, str]:
         current_week_number, payload = await self._load_schedule_payload()
         logger.debug(
             "Schedule payload loaded | current_week_number=%s", current_week_number
@@ -177,9 +191,9 @@ class ScheduleService:
         )
 
         image_bytes = await asyncio.to_thread(
-            self._render_week, normalized_payload
+            self._render_week, normalized_payload, layout
         )
-        filename = self._build_filename(display_week_number)
+        filename = self._build_filename(display_week_number, layout=layout)
         week_range = normalized_payload.get("week_date_range", "")
 
         logger.info(
@@ -230,11 +244,14 @@ class ScheduleService:
             include_study_group_in_slots=self._include_study_group_in_slots,
         )
 
-    def _render_week(self, normalized_payload: dict) -> bytes:
-        logger.debug("Sending payload to renderer")
-        return self._image_renderer.render(normalized_payload)
+    def _render_week(
+        self, normalized_payload: dict, layout: ScheduleLayout
+    ) -> bytes:
+        logger.debug("Sending payload to renderer | layout=%s", layout.value)
+        return self._image_renderer.render(normalized_payload, layout=layout)
 
-    def _build_filename(self, week_number: int) -> str:
-        filename = f"schedule_week_{week_number}.png"
+    def _build_filename(self, week_number: int, *, layout: ScheduleLayout) -> str:
+        suffix = "_vertical" if layout == ScheduleLayout.VERTICAL else ""
+        filename = f"schedule_week_{week_number}{suffix}.png"
         logger.debug("Built output filename | filename=%s", filename)
         return filename

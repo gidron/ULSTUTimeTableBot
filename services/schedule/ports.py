@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from constants.schedule_layout import ScheduleLayout
+
 
 class TimetableSource(Protocol):
     """Источник сырых данных расписания с университетского API."""
@@ -17,4 +19,9 @@ class TimetableSource(Protocol):
 class ScheduleImageRenderer(Protocol):
     """Рендер нормализованного расписания в изображение (PNG байты)."""
 
-    def render(self, week_payload: dict) -> bytes: ...
+    def render(
+        self,
+        week_payload: dict,
+        *,
+        layout: ScheduleLayout = ScheduleLayout.HORIZONTAL,
+    ) -> bytes: ...

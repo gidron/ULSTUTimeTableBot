@@ -1,5 +1,6 @@
 from datetime import datetime
-from tortoise import models, fields
+
+from tortoise import fields, models
 
 
 class User(models.Model):
@@ -11,6 +12,7 @@ class User(models.Model):
     notify_by_change = fields.BooleanField(default=True)
     last_day_online = fields.DateField(default=datetime.today())
     group_name = fields.CharField(max_length=32, null=True)
+    schedule_layout = fields.CharField(max_length=16, default="horizontal")
 
     def __str__(self):
         return f"{self.name} - {self.username} - {self.tg_id}"

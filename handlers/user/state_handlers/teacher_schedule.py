@@ -4,6 +4,8 @@ from aiogram.types import BufferedInputFile, CallbackQuery, Message
 from aiogram.utils.chat_action import ChatActionSender
 
 from constants.buttons_text import ButtonText as BT
+from constants.schedule_layout import parse_schedule_layout
+from database.models import User
 from keyboards.factories import PickSuggestedTeacherCallback
 from keyboards.inline import teacher_suggestions_inline_kb
 from keyboards.reply import cancel_kb, main_menu_user_kb
@@ -28,10 +30,18 @@ async def prompt_teacher_schedule(message: Message, state: FSMContext) -> None:
 
 
 async def _complete_teacher_schedule(
-    message: Message, teacher_name: str, state: FSMContext
+    message: Message,
+    teacher_name: str,
+    state: FSMContext,
+    *,
+    user_tg_id: int | None = None,
 ) -> None:
     await state.update_data(suggested_teachers=None)
     await state.set_state()
+
+    tg_id = user_tg_id if user_tg_id is not None else message.from_user.id
+    user = await User.get(tg_id=tg_id)
+    layout = parse_schedule_layout(user.schedule_layout)
 
     service = ScheduleService(
         teacher_name,
@@ -50,7 +60,7 @@ async def _complete_teacher_schedule(
         ):
             try:
                 image_bytes, filename, week_range = await service.get_week_image(
-                    week_kind
+                    week_kind, layout=layout
                 )
             except TimetableParseError:
                 await message.answer(
@@ -117,7 +127,12 @@ async def pick_suggested_teacher(
     await callback.answer()
     teacher_name = teachers[idx]
     await callback.message.delete()
-    await _complete_teacher_schedule(callback.message, teacher_name, state)
+    await _complete_teacher_schedule(
+        callback.message,
+        teacher_name,
+        state,
+        user_tg_id=callback.from_user.id,
+    )
 
 
 @router.message(TeacherSchedule.teacher_query, F.text)

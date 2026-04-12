@@ -26,12 +26,13 @@ def build_schedule_cache_key(
     week_kind: str,
     local_date: date,
     scope: str,
+    layout: str,
 ) -> str:
-    """Ключ: префикс, хэш группы, scope (group|teacher), вид недели, календарный день."""
+    """Ключ: префикс, хэш группы, scope, неделя, день, режим вёрстки (horizontal|vertical)."""
     settings = get_settings()
     gh = schedule_group_hash(group_name)
     d = local_date.isoformat()
-    return f"{settings.schedule_cache_key_prefix}:v1:{gh}:{scope}:{week_kind}:{d}"
+    return f"{settings.schedule_cache_key_prefix}:v1:{gh}:{scope}:{week_kind}:{d}:{layout}"
 
 
 async def get_cached_schedule_image(
@@ -39,6 +40,7 @@ async def get_cached_schedule_image(
     week_kind: str,
     local_date: date,
     scope: str,
+    layout: str,
 ) -> tuple[bytes, str, str] | None:
     settings = get_settings()
     if not settings.schedule_cache_enabled:
@@ -46,7 +48,7 @@ async def get_cached_schedule_image(
     r = get_redis()
     if r is None:
         return None
-    key = build_schedule_cache_key(group_name, week_kind, local_date, scope)
+    key = build_schedule_cache_key(group_name, week_kind, local_date, scope, layout)
     try:
         raw = await r.hgetall(key)
     except Exception:
@@ -69,6 +71,7 @@ async def set_cached_schedule_image(
     week_kind: str,
     local_date: date,
     scope: str,
+    layout: str,
     image_bytes: bytes,
     filename: str,
     week_range: str,
@@ -79,7 +82,7 @@ async def set_cached_schedule_image(
     r = get_redis()
     if r is None:
         return
-    key = build_schedule_cache_key(group_name, week_kind, local_date, scope)
+    key = build_schedule_cache_key(group_name, week_kind, local_date, scope, layout)
     ttl = settings.schedule_cache_ttl_seconds
     try:
         pipe = r.pipeline(transaction=True)

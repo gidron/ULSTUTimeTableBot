@@ -4,6 +4,7 @@ from aiogram.fsm.state import default_state
 from aiogram.types import CallbackQuery
 
 from constants.callbacks import CallbackConstants
+from constants.schedule_layout import ScheduleLayout, parse_schedule_layout
 from database.models import User
 from handlers.user.state_handlers.set_group_name import SET_GROUP_PROMPT
 from handlers.user.state_handlers.teacher_schedule import (
@@ -55,7 +56,29 @@ async def toggle_notifications(callback: CallbackQuery):
     toggle_text = "включены" if user.notify_by_change else "выключены"
     await callback.answer(f"Уведомления {toggle_text}")
     await callback.message.edit_reply_markup(
-        reply_markup=profile_inline_kb(user.notify_by_change)
+        reply_markup=profile_inline_kb(
+            user.notify_by_change,
+            parse_schedule_layout(user.schedule_layout),
+        )
+    )
+
+
+@router.callback_query(default_state, F.data == CallbackConstants.TOGGLE_SCHEDULE_LAYOUT)
+async def toggle_schedule_layout(callback: CallbackQuery):
+    user = await User.get(tg_id=callback.from_user.id)
+    current = parse_schedule_layout(user.schedule_layout)
+    user.schedule_layout = (
+        ScheduleLayout.VERTICAL.value
+        if current == ScheduleLayout.HORIZONTAL
+        else ScheduleLayout.HORIZONTAL.value
+    )
+    await user.save()
+    await callback.answer("Вид расписания сохранён")
+    await callback.message.edit_reply_markup(
+        reply_markup=profile_inline_kb(
+            user.notify_by_change,
+            parse_schedule_layout(user.schedule_layout),
+        )
     )
 
 

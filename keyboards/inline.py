@@ -1,11 +1,21 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from constants.buttons_text import ButtonText as BT
 from constants.callbacks import CallbackConstants
+from constants.schedule_layout import ScheduleLayout
 from keyboards.factories import PickSuggestedGroupCallback, PickSuggestedTeacherCallback
 
 
-def profile_inline_kb(notifications_enabled: bool) -> InlineKeyboardMarkup:
+def _schedule_layout_profile_label(layout: ScheduleLayout) -> str:
+    if layout == ScheduleLayout.HORIZONTAL:
+        return "📅 Вид: дни строками"
+    return "📅 Вид: дни столбцами"
+
+
+def profile_inline_kb(
+    notifications_enabled: bool,
+    schedule_layout: ScheduleLayout = ScheduleLayout.HORIZONTAL,
+) -> InlineKeyboardMarkup:
     notifications_button_text = (
         BT.DISABLE_NOTIFICATIONS if notifications_enabled else BT.ENABLE_NOTIFICATIONS
     )
@@ -26,6 +36,12 @@ def profile_inline_kb(notifications_enabled: bool) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=notifications_button_text,
                     callback_data=CallbackConstants.TOGGLE_NOTIFICATIONS,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=_schedule_layout_profile_label(schedule_layout),
+                    callback_data=CallbackConstants.TOGGLE_SCHEDULE_LAYOUT,
                 )
             ],
             [

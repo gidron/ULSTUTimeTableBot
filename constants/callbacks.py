@@ -6,4 +6,5 @@ class CallbackConstants(StrEnum):
     SET_GROUP_NAME = "set_group_name"
     TEACHER_SCHEDULE = "teacher_schedule"
     TOGGLE_NOTIFICATIONS = "toggle_notifications"
+    TOGGLE_SCHEDULE_LAYOUT = "toggle_schedule_layout"
     CONTACT_DEVELOPER = "contact_developer"

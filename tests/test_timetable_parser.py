@@ -131,7 +131,8 @@ def test_normalize_week_teacher_mode_puts_group_before_lesson() -> None:
     lines = slot0.split("\n")
     assert lines[0] == "УИДбд-21"
     assert "Менеджмент" in slot0
-    assert "Волкова" in slot0
+    assert "2-223" in slot0
+    assert "Волкова" not in slot0
 
 
 def test_normalize_week_formats_slot() -> None:
@@ -157,6 +158,107 @@ def test_normalize_week_formats_slot() -> None:
     assert "Матан" in slot0
     assert "Иванов" in slot0
     assert "101" in slot0
+
+
+def test_normalize_week_teacher_mode_multi_groups_on_one_line() -> None:
+    week_data = {
+        "days": [
+            {
+                "day": 0,
+                "lessons": [
+                    [
+                        {
+                            "group": "УИДбд-21",
+                            "nameOfLesson": "пр. А",
+                            "teacher": "Петров П П",
+                            "room": "1-1",
+                        },
+                        {
+                            "group": "УИДбд-22",
+                            "nameOfLesson": "лек. Б",
+                            "teacher": "Петров П П",
+                            "room": "1-2",
+                        },
+                    ],
+                ]
+                + [[] for _ in range(7)],
+            }
+        ]
+    }
+    out = TimetableParser.normalize_week(
+        "0",
+        week_data,
+        group_name="Петров П П",
+        include_study_group_in_slots=True,
+    )
+    text = out["days"][0]["slots"][0]
+    assert text.startswith("УИДбд-21 УИДбд-22")
+    assert "пр. А" in text and "лек. Б" in text
+    assert "Петров" not in text
+
+
+def test_normalize_week_student_mode_duplicate_discipline_merged() -> None:
+    """Две записи API на одну пару с разными группами, но одинаковым предметом — один блок."""
+    week_data = {
+        "days": [
+            {
+                "day": 0,
+                "lessons": [
+                    [
+                        {
+                            "group": "Мбд-21",
+                            "nameOfLesson": "лек. Менеджмент",
+                            "teacher": "Т Уч",
+                            "room": "2-223",
+                        },
+                        {
+                            "group": "МКбд-21",
+                            "nameOfLesson": "лек. Менеджмент",
+                            "teacher": "Т Уч",
+                            "room": "2-223",
+                        },
+                    ],
+                ]
+                + [[] for _ in range(7)],
+            }
+        ]
+    }
+    out = TimetableParser.normalize_week("0", week_data, group_name="G")
+    text = out["days"][0]["slots"][0]
+    assert text.count("лек. Менеджмент") == 1
+    assert text.startswith("Мбд-21 МКбд-21")
+
+
+def test_normalize_week_student_mode_multi_groups_on_one_line() -> None:
+    week_data = {
+        "days": [
+            {
+                "day": 0,
+                "lessons": [
+                    [
+                        {
+                            "group": "Гр-1",
+                            "nameOfLesson": "пр. А",
+                            "teacher": "Т1",
+                            "room": "101",
+                        },
+                        {
+                            "group": "Гр-2",
+                            "nameOfLesson": "лек. Б",
+                            "teacher": "Т2",
+                            "room": "102",
+                        },
+                    ],
+                ]
+                + [[] for _ in range(7)],
+            }
+        ]
+    }
+    out = TimetableParser.normalize_week("0", week_data, group_name="G")
+    text = out["days"][0]["slots"][0]
+    assert text.startswith("Гр-1 Гр-2")
+    assert "пр. А" in text and "Т1" in text
+    assert "лек. Б" in text and "Т2" in text
 
 
 def test_normalize_week_multiple_lessons_in_slot() -> None:

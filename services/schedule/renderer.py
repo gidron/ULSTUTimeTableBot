@@ -9,6 +9,7 @@ from typing import Iterable
 
 from PIL import Image, ImageDraw, ImageFont
 
+from constants.schedule_layout import ScheduleLayout
 from core.config import get_settings
 from services.schedule.constants import PAIR_HEADERS, PAIR_TIMES, WEEKDAY_NAMES
 
@@ -22,6 +23,9 @@ DAY_ROW_HEIGHT = 102
 
 LEFT_COL_WIDTH = 78
 PAIR_COL_WIDTHS = [183, 183, 183, 120, 120, 180, 122, 114]
+
+VERT_LEFT_COL_WIDTH = 108
+VERT_DAY_HEADER_HEIGHT = 72
 
 GRID_LINE = (25, 25, 25)
 BG = (255, 255, 255)
@@ -56,6 +60,8 @@ class ScheduleRenderer:
         self._pair_row_height = PAIR_ROW_HEIGHT * self.scale
         self._time_row_height = TIME_ROW_HEIGHT * self.scale
         self._day_row_height = DAY_ROW_HEIGHT * self.scale
+        self._vert_left_col_width = VERT_LEFT_COL_WIDTH * self.scale
+        self._vert_day_header_height = VERT_DAY_HEADER_HEIGHT * self.scale
 
         logger.debug(
             "ScheduleRenderer initialized | font_path=%s | scale=%s",
@@ -63,10 +69,21 @@ class ScheduleRenderer:
             self.scale,
         )
 
-    def render(self, week_payload: dict) -> bytes:
+    def render(
+        self,
+        week_payload: dict,
+        *,
+        layout: ScheduleLayout = ScheduleLayout.HORIZONTAL,
+    ) -> bytes:
         """Собирает PNG и возвращает сырые байты (масштаб уменьшается до CANVAS_WIDTH)."""
+        if layout == ScheduleLayout.VERTICAL:
+            return self._render_vertical(week_payload)
+        return self._render_horizontal(week_payload)
+
+    def _render_horizontal(self, week_payload: dict) -> bytes:
+        """Дни — строки, пары — столбцы."""
         logger.info(
-            "Starting schedule rendering | group_name=%s | week_number=%s",
+            "Starting schedule rendering (horizontal) | group_name=%s | week_number=%s",
             week_payload.get("group_name"),
             week_payload.get("week_number"),
         )
@@ -94,6 +111,33 @@ class ScheduleRenderer:
         self._draw_time_header(draw)
         self._draw_body(draw, week_payload)
 
+        return self._finalize_png(image)
+
+    def _render_vertical(self, week_payload: dict) -> bytes:
+        """Пары — строки, дни — столбцы (как на сайте)."""
+        logger.info(
+            "Starting schedule rendering (vertical) | group_name=%s | week_number=%s",
+            week_payload.get("group_name"),
+            week_payload.get("week_number"),
+        )
+
+        height = (
+            self._top_header_height
+            + self._vert_day_header_height
+            + len(PAIR_HEADERS) * self._day_row_height
+        )
+
+        image = Image.new("RGB", (self._canvas_width, height), BG)
+        draw = ImageDraw.Draw(image)
+
+        self._draw_top_header(draw, week_payload)
+        self._draw_vertical_day_header_row(draw, week_payload)
+        self._draw_vertical_body(draw, week_payload)
+
+        return self._finalize_png(image)
+
+    def _finalize_png(self, image: Image.Image) -> bytes:
+        height = image.height
         final_image = image.resize(
             (CANVAS_WIDTH, height // self.scale),
             Image.Resampling.LANCZOS,
@@ -106,6 +150,173 @@ class ScheduleRenderer:
 
         logger.info("Rendering completed successfully | bytes=%s", len(data))
         return data
+
+    def _vertical_day_col_widths(self, n_days: int) -> list[int]:
+        total = self._canvas_width - self._vert_left_col_width
+        if n_days <= 0:
+            return []
+        base = total // n_days
+        rem = total % n_days
+        return [base + (1 if i < rem else 0) for i in range(n_days)]
+
+    def _draw_vertical_day_header_row(
+        self, draw: ImageDraw.ImageDraw, week_payload: dict
+    ) -> None:
+        days = week_payload["days"]
+        y1 = self._top_header_height
+        y2 = y1 + self._vert_day_header_height
+        widths = self._vertical_day_col_widths(len(days))
+
+        draw.rectangle(
+            [(0, y1), (self._canvas_width - 1, y2)],
+            outline=GRID_LINE,
+            width=1,
+            fill=BG,
+        )
+        self._draw_corner_para_vremya(draw, y1, y2)
+
+        x = self._vert_left_col_width
+        for i, w in enumerate(widths):
+            day = days[i]
+            fill = CURRENT_DAY_BG if day.get("is_current_day") else BG
+            x2 = x + w
+            draw.rectangle(
+                [(x, y1), (x2 - 1, y2)],
+                outline=GRID_LINE,
+                width=1,
+                fill=fill,
+            )
+            self._draw_vertical_day_header_cell(draw, x, y1, x2, y2, day)
+            x = x2
+
+    def _draw_corner_para_vremya(
+        self, draw: ImageDraw.ImageDraw, y1: int, y2: int
+    ) -> None:
+        lines = ["Пара", "Время"]
+        gap = 6 * self.scale
+        fonts = [self.font_left_col, self.font_left_col]
+        sizes = []
+        total_h = 0
+        for line, font in zip(lines, fonts):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            sizes.append((bbox[2] - bbox[0], bbox[3] - bbox[1]))
+            total_h += bbox[3] - bbox[1]
+        total_h += gap * (len(lines) - 1)
+        cy = y1 + (y2 - y1 - total_h) / 2
+        for line, font, (tw, th) in zip(lines, fonts, sizes):
+            draw.text(
+                ((self._vert_left_col_width - tw) / 2, cy),
+                line,
+                fill=TEXT,
+                font=font,
+            )
+            cy += th + gap
+
+    def _draw_vertical_day_header_cell(
+        self,
+        draw: ImageDraw.ImageDraw,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        day_payload: dict,
+    ) -> None:
+        day_index = day_payload["day_index"]
+        label = (
+            WEEKDAY_NAMES[day_index]
+            if day_index < len(WEEKDAY_NAMES)
+            else str(day_index)
+        )
+        date_text = day_payload.get("date")
+        lines = [label]
+        if date_text:
+            lines.append(date_text)
+        fonts = [self.font_left_col for _ in lines]
+        gap = 6 * self.scale if len(lines) > 1 else 0
+        sizes = []
+        total_h = 0
+        for line, font in zip(lines, fonts):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            sizes.append((bbox[2] - bbox[0], bbox[3] - bbox[1]))
+            total_h += bbox[3] - bbox[1]
+        total_h += gap * (len(lines) - 1)
+        cy = y1 + (y2 - y1 - total_h) / 2
+        for line, font, (tw, th) in zip(lines, fonts, sizes):
+            draw.text(
+                (x1 + (x2 - x1 - tw) / 2, cy),
+                line,
+                fill=TEXT,
+                font=font,
+            )
+            cy += th + gap
+
+    def _draw_vertical_body(
+        self, draw: ImageDraw.ImageDraw, week_payload: dict
+    ) -> None:
+        days = week_payload["days"]
+        widths = self._vertical_day_col_widths(len(days))
+        start_y = self._top_header_height + self._vert_day_header_height
+
+        for pair_idx in range(len(PAIR_HEADERS)):
+            y1 = start_y + pair_idx * self._day_row_height
+            y2 = y1 + self._day_row_height
+
+            draw.rectangle(
+                [(0, y1), (self._canvas_width - 1, y2)],
+                outline=GRID_LINE,
+                width=1,
+                fill=BG,
+            )
+            self._draw_pair_time_label(draw, y1, y2, pair_idx)
+
+            x = self._vert_left_col_width
+            for day_idx, w in enumerate(widths):
+                day = days[day_idx]
+                fill = CURRENT_DAY_BG if day.get("is_current_day") else BG
+                x2 = x + w
+                draw.rectangle(
+                    [(x, y1), (x2 - 1, y2)],
+                    outline=GRID_LINE,
+                    width=1,
+                    fill=fill,
+                )
+                slots = day.get("slots") or []
+                slot_text = slots[pair_idx] if pair_idx < len(slots) else ""
+                if slot_text and str(slot_text).strip():
+                    self._draw_text_in_cell(
+                        draw,
+                        (x, y1, x2, y2),
+                        str(slot_text).strip(),
+                        self.font_cell,
+                    )
+                x = x2
+
+    def _draw_pair_time_label(
+        self, draw: ImageDraw.ImageDraw, y1: int, y2: int, pair_idx: int
+    ) -> None:
+        header = PAIR_HEADERS[pair_idx] if pair_idx < len(PAIR_HEADERS) else str(pair_idx)
+        time_label = PAIR_TIMES[pair_idx] if pair_idx < len(PAIR_TIMES) else ""
+        lines = [header]
+        if time_label:
+            lines.append(time_label)
+        fonts = [self.font_left_col, self.font_regular]
+        gap = 6 * self.scale if len(lines) > 1 else 0
+        total_h = 0
+        sizes = []
+        for line, font in zip(lines, fonts):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            sizes.append((bbox[2] - bbox[0], bbox[3] - bbox[1]))
+            total_h += bbox[3] - bbox[1]
+        total_h += gap * (len(lines) - 1)
+        cy = y1 + (y2 - y1 - total_h) / 2
+        for line, font, (tw, th) in zip(lines, fonts, sizes):
+            draw.text(
+                ((self._vert_left_col_width - tw) / 2, cy),
+                line,
+                fill=TEXT,
+                font=font,
+            )
+            cy += th + gap
 
     def _draw_top_header(self, draw: ImageDraw.ImageDraw, week_payload: dict) -> None:
         logger.debug(
