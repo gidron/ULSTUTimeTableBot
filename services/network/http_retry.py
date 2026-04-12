@@ -33,7 +33,9 @@ async def request_with_retry(
 ) -> httpx.Response:
     """Выполняет ``client.request`` с экспоненциальной задержкой при транзиентных ошибках."""
     settings = get_settings()
-    attempts = max_attempts if max_attempts is not None else settings.http_transient_attempts
+    attempts = (
+        max_attempts if max_attempts is not None else settings.http_transient_attempts
+    )
     delay = base_delay if base_delay is not None else settings.http_retry_base_delay
 
     last_exc: BaseException | None = None

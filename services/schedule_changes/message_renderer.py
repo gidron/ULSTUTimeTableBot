@@ -47,9 +47,7 @@ def _day_header_line(
         today=ref_today,
     )
     label = (
-        WEEKDAY_NAMES[day_index]
-        if day_index < len(WEEKDAY_NAMES)
-        else str(day_index)
+        WEEKDAY_NAMES[day_index] if day_index < len(WEEKDAY_NAMES) else str(day_index)
     )
     return f"{label} ({when.strftime('%d.%m')})"
 
@@ -135,9 +133,7 @@ def _render_one_day(
     ref_today: date,
     day_events: list[dict],
 ) -> None:
-    lines.append(
-        _day_header_line(day_index, week_number, api_current_week, ref_today)
-    )
+    lines.append(_day_header_line(day_index, week_number, api_current_week, ref_today))
 
     by_slot: dict[int, list[dict]] = defaultdict(list)
     for ch in day_events:

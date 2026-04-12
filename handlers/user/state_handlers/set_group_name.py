@@ -14,14 +14,13 @@ from services.network import UniversityClient
 
 router = Router(name="user_state_handlers_register_user_form")
 
-SET_GROUP_PROMPT = (
-    "Введи название группы.\n"
-    "Пример - <code>УИДбд-21</code>"""
-)
+SET_GROUP_PROMPT = "Введи название группы.\nПример - <code>УИДбд-21</code>"
+
 
 async def prompt_set_group(message: Message, state: FSMContext) -> None:
     await state.set_state(SetGroupName.group_name)
     await message.answer(SET_GROUP_PROMPT, reply_markup=cancel_kb)
+
 
 async def _complete_group_setup(
     message: Message, tg_id: int, group_name: str, state: FSMContext
@@ -65,6 +64,7 @@ async def pick_suggested_group(
     await _complete_group_setup(
         callback.message, callback.from_user.id, group_name, state
     )
+
 
 @router.message(SetGroupName.group_name, F.text)
 async def user_set_group_name(message: Message, state: FSMContext):

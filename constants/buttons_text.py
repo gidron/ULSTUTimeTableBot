@@ -9,6 +9,8 @@ class ButtonText(StrEnum):
     CONTACT_DEVELOPER = "✉️ Написать разработчику"
     CHANGE_GROUP = "🛠 Изменить группу"
     TEACHER_SCHEDULE = "👤 Расписание преподавателя"
+    SCHEDULE_LAYOUT_DAYS_ROWS = "📅 Вид: дни строками"
+    SCHEDULE_LAYOUT_DAYS_COLUMNS = "📅 Вид: дни столбцами"
     ENABLE_NOTIFICATIONS = "🔔 Включить уведомления"
     DISABLE_NOTIFICATIONS = "🔕 Выключить уведомления"
     DEATH = "💀"

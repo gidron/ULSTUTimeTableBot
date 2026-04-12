@@ -8,8 +8,8 @@ from keyboards.factories import PickSuggestedGroupCallback, PickSuggestedTeacher
 
 def _schedule_layout_profile_label(layout: ScheduleLayout) -> str:
     if layout == ScheduleLayout.HORIZONTAL:
-        return "📅 Вид: дни строками"
-    return "📅 Вид: дни столбцами"
+        return BT.SCHEDULE_LAYOUT_DAYS_ROWS
+    return BT.SCHEDULE_LAYOUT_DAYS_COLUMNS
 
 
 def profile_inline_kb(

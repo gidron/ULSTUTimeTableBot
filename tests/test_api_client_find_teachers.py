@@ -12,7 +12,9 @@ from services.network.session_provider import UniversitySessionProvider
 
 
 @pytest.mark.asyncio
-async def test_find_teachers_returns_stripped_names(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_find_teachers_returns_stripped_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     provider = MagicMock(spec=UniversitySessionProvider)
     provider.group = "Вол"
     client = UniversityApiClient(provider)
@@ -33,7 +35,9 @@ async def test_find_teachers_returns_stripped_names(monkeypatch: pytest.MonkeyPa
 
 
 @pytest.mark.asyncio
-async def test_find_teachers_invalid_type_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_find_teachers_invalid_type_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     provider = MagicMock(spec=UniversitySessionProvider)
     provider.group = "x"
     client = UniversityApiClient(provider)

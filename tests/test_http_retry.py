@@ -24,7 +24,9 @@ async def test_request_with_retry_retries_then_success() -> None:
     client = MagicMock()
     client.request = AsyncMock(
         side_effect=[
-            httpx.ConnectError("boom", request=httpx.Request("GET", "https://example.test/")),
+            httpx.ConnectError(
+                "boom", request=httpx.Request("GET", "https://example.test/")
+            ),
             final,
         ]
     )

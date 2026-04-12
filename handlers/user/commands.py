@@ -105,7 +105,9 @@ async def show_week(message: Message, command: CommandObject | None = None):
             )
 
             photo = BufferedInputFile(image_bytes, filename=filename)
-            await message.answer_photo(photo=photo, caption=caption, reply_markup=main_menu_user_kb)
+            await message.answer_photo(
+                photo=photo, caption=caption, reply_markup=main_menu_user_kb
+            )
 
     await message_to_delete.delete()
 
@@ -142,8 +144,8 @@ async def profile(message: Message):
         "следующую неделю (поиск по фамилии и инициалам, как на сайте).\n"
         f"{notify_bullet}\n"
         f"• {BT.CONTACT_DEVELOPER} — отправить вопрос или сообщение разработчику \n"
-        "• Кнопка с 📅 — как показывать расписание: дни строками (как раньше в боте) "
-        "или столбцами (как на сайте УлГТУ).\n\n"
+        f"• {BT.SCHEDULE_LAYOUT_DAYS_ROWS} / {BT.SCHEDULE_LAYOUT_DAYS_COLUMNS} — как показывать "
+        "расписание: дни строками (по умолчанию) или столбцами.\n\n"
         "<i>Нажми нужную кнопку 👇</i>"
     )
     await message.answer(

@@ -202,7 +202,10 @@ class TimetableParser:
                 head = " ".join(groups)
                 body = "\n\n".join(blocks)
                 result = f"{head}\n\n{body}" if body else head
-                logger.debug("Slot text built (teacher, multi-group) | text_length=%s", len(result))
+                logger.debug(
+                    "Slot text built (teacher, multi-group) | text_length=%s",
+                    len(result),
+                )
                 return result
 
             if len(entries) == 1:
@@ -212,18 +215,24 @@ class TimetableParser:
                 room = (item.get("room") or "").strip()
                 parts = [sg, lesson, room]
                 result = "\n".join(p for p in parts if p)
-                logger.debug("Slot text built (teacher, single) | text_length=%s", len(result))
+                logger.debug(
+                    "Slot text built (teacher, single) | text_length=%s", len(result)
+                )
                 return result
 
             if len(groups) == 1:
                 head = groups[0]
                 body = "\n\n".join(blocks)
                 result = f"{head}\n\n{body}" if body else head
-                logger.debug("Slot text built (teacher, one group) | text_length=%s", len(result))
+                logger.debug(
+                    "Slot text built (teacher, one group) | text_length=%s", len(result)
+                )
                 return result
 
             result = "\n\n".join(blocks)
-            logger.debug("Slot text built (teacher, no groups) | text_length=%s", len(result))
+            logger.debug(
+                "Slot text built (teacher, no groups) | text_length=%s", len(result)
+            )
             return result
 
         if len(groups) >= 2:
@@ -231,7 +240,10 @@ class TimetableParser:
             head = " ".join(groups)
             body = "\n\n".join(blocks)
             result = f"{head}\n\n{body}" if body else head
-            logger.debug("Slot text built (student, multi-group header) | text_length=%s", len(result))
+            logger.debug(
+                "Slot text built (student, multi-group header) | text_length=%s",
+                len(result),
+            )
             return result
 
         lines: list[str] = []

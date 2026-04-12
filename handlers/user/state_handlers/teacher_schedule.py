@@ -17,8 +17,8 @@ from services.schedule.parser import TimetableParseError
 router = Router(name="user_state_handlers_teacher_schedule")
 
 SET_TEACHER_PROMPT = (
-    "Введи фамилию преподавателя и инициалы (как в официальном расписании).\n"
-    "Пример — <code>Волкова Е А</code>"
+    "Введи фамилия или инициалы преподавателя\n"
+    "Пример - <code>Волкова</code> или <code>Волкова Е А</code> "
 )
 
 SCHEDULE_PREFIX_TEACHER = "Расписание преподавателя:"
@@ -119,7 +119,7 @@ async def pick_suggested_teacher(
     idx = callback_data.index
     if idx < 0 or idx >= len(teachers):
         await callback.answer(
-            "Список устарел. Введи фамилию и инициалы ещё раз.",
+            "Список устарел. Введи запрос ещё раз (фамилию, инициалы или вместе).",
             show_alert=True,
         )
         return

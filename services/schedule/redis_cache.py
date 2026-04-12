@@ -32,7 +32,9 @@ def build_schedule_cache_key(
     settings = get_settings()
     gh = schedule_group_hash(group_name)
     d = local_date.isoformat()
-    return f"{settings.schedule_cache_key_prefix}:v1:{gh}:{scope}:{week_kind}:{d}:{layout}"
+    return (
+        f"{settings.schedule_cache_key_prefix}:v1:{gh}:{scope}:{week_kind}:{d}:{layout}"
+    )
 
 
 async def get_cached_schedule_image(

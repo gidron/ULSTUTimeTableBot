@@ -244,9 +244,7 @@ class ScheduleService:
             include_study_group_in_slots=self._include_study_group_in_slots,
         )
 
-    def _render_week(
-        self, normalized_payload: dict, layout: ScheduleLayout
-    ) -> bytes:
+    def _render_week(self, normalized_payload: dict, layout: ScheduleLayout) -> bytes:
         logger.debug("Sending payload to renderer | layout=%s", layout.value)
         return self._image_renderer.render(normalized_payload, layout=layout)
 

@@ -33,8 +33,7 @@ async def cancel_contact(message: Message, state: FSMContext):
 @router.message(ContactDeveloper.message, F.text.startswith("/"))
 async def contact_ignore_commands(message: Message):
     await message.answer(
-        "Сейчас ожидается сообщение для разработчика. "
-        "Отправь его или нажми «Отмена»."
+        "Сейчас ожидается сообщение для разработчика. Отправь его или нажми «Отмена»."
     )
 
 

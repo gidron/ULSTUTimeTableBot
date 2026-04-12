@@ -294,7 +294,9 @@ class ScheduleRenderer:
     def _draw_pair_time_label(
         self, draw: ImageDraw.ImageDraw, y1: int, y2: int, pair_idx: int
     ) -> None:
-        header = PAIR_HEADERS[pair_idx] if pair_idx < len(PAIR_HEADERS) else str(pair_idx)
+        header = (
+            PAIR_HEADERS[pair_idx] if pair_idx < len(PAIR_HEADERS) else str(pair_idx)
+        )
         time_label = PAIR_TIMES[pair_idx] if pair_idx < len(PAIR_TIMES) else ""
         lines = [header]
         if time_label:

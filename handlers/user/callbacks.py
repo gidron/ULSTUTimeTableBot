@@ -63,7 +63,9 @@ async def toggle_notifications(callback: CallbackQuery):
     )
 
 
-@router.callback_query(default_state, F.data == CallbackConstants.TOGGLE_SCHEDULE_LAYOUT)
+@router.callback_query(
+    default_state, F.data == CallbackConstants.TOGGLE_SCHEDULE_LAYOUT
+)
 async def toggle_schedule_layout(callback: CallbackQuery):
     user = await User.get(tg_id=callback.from_user.id)
     current = parse_schedule_layout(user.schedule_layout)
@@ -95,7 +97,8 @@ async def accept_new_user(
         await user.save()
 
         await callback.bot.send_sticker(
-            chat_id=tg_id, sticker='CAACAgIAAxkBAAICFGnWk6zi3fLhHHqc5gxikWrEcmrKAAKcWwACl2dxSMeEVHqNXTnbOwQ'
+            chat_id=tg_id,
+            sticker="CAACAgIAAxkBAAICFGnWk6zi3fLhHHqc5gxikWrEcmrKAAKcWwACl2dxSMeEVHqNXTnbOwQ",
         )
         await callback.bot.send_message(
             chat_id=tg_id, text="Тебя добавили. Введи /start"
