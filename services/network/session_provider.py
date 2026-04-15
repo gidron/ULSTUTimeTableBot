@@ -223,7 +223,11 @@ class UniversitySessionProvider:
             )
 
         self._authorized = True
-        logger.info("Authorization completed successfully")
+        logger.info(
+            "Authorization completed successfully | lk_login=%s | group=%s",
+            self.login,
+            self.group,
+        )
 
     def _has_time_session(self) -> bool:
         if self._client is None:
