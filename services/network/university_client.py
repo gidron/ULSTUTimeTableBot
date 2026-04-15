@@ -68,9 +68,10 @@ class UniversityClient:
                 attempts = len(pool)
                 last_auth_error: UniversityAuthError | None = None
                 for attempt in range(attempts):
-                    cred_login, cred_password = (
-                        await get_university_account_selector().pick()
-                    )
+                    (
+                        cred_login,
+                        cred_password,
+                    ) = await get_university_account_selector().pick()
                     sp = UniversitySessionProvider(
                         group=self._group_name,
                         login=cred_login,

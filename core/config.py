@@ -122,9 +122,7 @@ class Settings(BaseSettings):
             login = item.get("login")
             password = item.get("password")
             if not isinstance(login, str) or not isinstance(password, str):
-                raise ValueError(
-                    'Each account must have string "login" and "password"'
-                )
+                raise ValueError('Each account must have string "login" and "password"')
             if login.strip() and password:
                 result.append((login, password))
         if not result:

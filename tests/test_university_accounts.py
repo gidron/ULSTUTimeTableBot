@@ -218,9 +218,7 @@ async def test_refresh_authorization_failover_to_second_account(monkeypatch):
 
     monkeypatch.setattr(UniversitySessionProvider, "_do_authorize", fake_do_authorize)
 
-    sp = UniversitySessionProvider(
-        "grp", "u1", "p1", enable_account_failover=True
-    )
+    sp = UniversitySessionProvider("grp", "u1", "p1", enable_account_failover=True)
     async with sp:
         await sp.refresh_authorization()
 
@@ -248,9 +246,7 @@ async def test_refresh_authorization_failover_disabled_raises(monkeypatch):
 
     monkeypatch.setattr(UniversitySessionProvider, "_do_authorize", fake_do_authorize)
 
-    sp = UniversitySessionProvider(
-        "grp", "u1", "p1", enable_account_failover=False
-    )
+    sp = UniversitySessionProvider("grp", "u1", "p1", enable_account_failover=False)
     with pytest.raises(UniversityAuthError, match="bad"):
         async with sp:
             await sp.refresh_authorization()
