@@ -12,6 +12,9 @@ from services.network.account_selector import (
     get_university_account_selector,
     reset_university_account_selector,
 )
+from services.network.exceptions import UniversityAuthError
+from services.network import university_client as university_client_module
+from services.network.session_provider import UniversitySessionProvider
 
 
 @pytest.fixture(autouse=True)
@@ -99,3 +102,173 @@ async def test_get_selector_uses_settings_pool(monkeypatch):
     assert await sel.pick() == ("u1", "p1")
     assert await sel.pick() == ("u2", "p2")
     assert await sel.pick() == ("u1", "p1")
+
+
+@pytest.mark.asyncio
+async def test_university_client_auth_failover_second_account(monkeypatch):
+    accounts = [
+        {"login": "u1", "password": "p1"},
+        {"login": "u2", "password": "p2"},
+    ]
+    monkeypatch.setenv("UNIVERSITY_ACCOUNTS_JSON", json.dumps(accounts))
+    monkeypatch.setenv("UNIVERSITY_LOGIN", "")
+    monkeypatch.setenv("UNIVERSITY_PASSWORD", "")
+    get_settings.cache_clear()
+    reset_university_account_selector()
+
+    class MockSessionProvider:
+        def __init__(
+            self,
+            group: str,
+            login: str,
+            password: str,
+            timeout: float = 0,
+            **kwargs,
+        ):
+            self.group = group
+            self.login = login
+            self.password = password
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def get_authorized_client(self):
+            if self.login == "u1":
+                raise UniversityAuthError("bad credentials")
+            return object()
+
+    monkeypatch.setattr(
+        university_client_module,
+        "UniversitySessionProvider",
+        MockSessionProvider,
+    )
+
+    async with university_client_module.UniversityClient("ИВТ-101") as client:
+        assert client.session_provider.login == "u2"
+
+
+@pytest.mark.asyncio
+async def test_university_client_auth_failover_all_fail(monkeypatch):
+    accounts = [
+        {"login": "u1", "password": "p1"},
+        {"login": "u2", "password": "p2"},
+    ]
+    monkeypatch.setenv("UNIVERSITY_ACCOUNTS_JSON", json.dumps(accounts))
+    monkeypatch.setenv("UNIVERSITY_LOGIN", "")
+    monkeypatch.setenv("UNIVERSITY_PASSWORD", "")
+    get_settings.cache_clear()
+    reset_university_account_selector()
+
+    class MockSessionProvider:
+        def __init__(
+            self,
+            group: str,
+            login: str,
+            password: str,
+            timeout: float = 0,
+            **kwargs,
+        ):
+            self.login = login
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def get_authorized_client(self):
+            raise UniversityAuthError("always fail")
+
+    monkeypatch.setattr(
+        university_client_module,
+        "UniversitySessionProvider",
+        MockSessionProvider,
+    )
+
+    with pytest.raises(UniversityAuthError, match="always fail"):
+        async with university_client_module.UniversityClient("ИВТ-101"):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_refresh_authorization_failover_to_second_account(monkeypatch):
+    monkeypatch.setenv(
+        "UNIVERSITY_ACCOUNTS_JSON",
+        json.dumps(
+            [
+                {"login": "u1", "password": "p1"},
+                {"login": "u2", "password": "p2"},
+            ]
+        ),
+    )
+    monkeypatch.setenv("UNIVERSITY_LOGIN", "")
+    monkeypatch.setenv("UNIVERSITY_PASSWORD", "")
+    get_settings.cache_clear()
+
+    calls: list[str] = []
+
+    async def fake_do_authorize(self):
+        calls.append(self.login)
+        if self.login == "u1":
+            raise UniversityAuthError("bad")
+        self._authorized = True
+
+    monkeypatch.setattr(UniversitySessionProvider, "_do_authorize", fake_do_authorize)
+
+    sp = UniversitySessionProvider(
+        "grp", "u1", "p1", enable_account_failover=True
+    )
+    async with sp:
+        await sp.refresh_authorization()
+
+    assert calls == ["u1", "u2"]
+    assert sp.login == "u2"
+
+
+@pytest.mark.asyncio
+async def test_refresh_authorization_failover_disabled_raises(monkeypatch):
+    monkeypatch.setenv(
+        "UNIVERSITY_ACCOUNTS_JSON",
+        json.dumps(
+            [
+                {"login": "u1", "password": "p1"},
+                {"login": "u2", "password": "p2"},
+            ]
+        ),
+    )
+    monkeypatch.setenv("UNIVERSITY_LOGIN", "")
+    monkeypatch.setenv("UNIVERSITY_PASSWORD", "")
+    get_settings.cache_clear()
+
+    async def fake_do_authorize(self):
+        raise UniversityAuthError("bad")
+
+    monkeypatch.setattr(UniversitySessionProvider, "_do_authorize", fake_do_authorize)
+
+    sp = UniversitySessionProvider(
+        "grp", "u1", "p1", enable_account_failover=False
+    )
+    with pytest.raises(UniversityAuthError, match="bad"):
+        async with sp:
+            await sp.refresh_authorization()
+
+
+@pytest.mark.asyncio
+async def test_refresh_authorization_failover_no_other_accounts(monkeypatch):
+    monkeypatch.setenv("UNIVERSITY_ACCOUNTS_JSON", "")
+    monkeypatch.setenv("UNIVERSITY_LOGIN", "only")
+    monkeypatch.setenv("UNIVERSITY_PASSWORD", "secret")
+    get_settings.cache_clear()
+
+    async def fake_do_authorize(self):
+        raise UniversityAuthError("bad")
+
+    monkeypatch.setattr(UniversitySessionProvider, "_do_authorize", fake_do_authorize)
+
+    sp = UniversitySessionProvider("grp", enable_account_failover=True)
+    with pytest.raises(UniversityAuthError, match="bad"):
+        async with sp:
+            await sp.refresh_authorization()

@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import logging
+
 import httpx
+
+from core.config import get_settings
 
 from .account_selector import get_university_account_selector
 from .api_client import UniversityApiClient
+from .exceptions import UniversityAuthError
 from .session_provider import UniversitySessionProvider
+
+logger = logging.getLogger("client")
 
 
 class UniversityClient:
@@ -14,6 +21,9 @@ class UniversityClient:
 
     Каждый экземпляр со своей httpx-сессией; после ``async with`` сессия закрывается.
     Учётная запись выбирается round-robin при входе в контекст (если не переданы явно).
+    При ошибке входа в ЛК перебираются остальные учётки из пула (не более одного раза на каждую).
+    После успешного входа при сбое повторной авторизации (например после 401 API) снова
+    перебираются остальные учётки из пула, пока не сработает вход или не кончатся варианты.
     """
 
     def __init__(
@@ -43,6 +53,7 @@ class UniversityClient:
         return self._session_provider
 
     async def __aenter__(self) -> "UniversityClient":
+        failover_session_already_entered = False
         if self._session_provider is None:
             if self._preset_session_provider is not None:
                 self._session_provider = self._preset_session_provider
@@ -53,15 +64,47 @@ class UniversityClient:
                     password=self._explicit_password or "",
                 )
             else:
-                cred_login, cred_password = (
-                    await get_university_account_selector().pick()
-                )
-                self._session_provider = UniversitySessionProvider(
-                    group=self._group_name,
-                    login=cred_login,
-                    password=cred_password,
-                )
-        await self._session_provider.__aenter__()
+                pool = get_settings().university_credentials_pool()
+                attempts = len(pool)
+                last_auth_error: UniversityAuthError | None = None
+                for attempt in range(attempts):
+                    cred_login, cred_password = (
+                        await get_university_account_selector().pick()
+                    )
+                    sp = UniversitySessionProvider(
+                        group=self._group_name,
+                        login=cred_login,
+                        password=cred_password,
+                        enable_account_failover=True,
+                    )
+                    await sp.__aenter__()
+                    try:
+                        await sp.get_authorized_client()
+                    except UniversityAuthError as exc:
+                        last_auth_error = exc
+                        logger.warning(
+                            "University auth failed | lk_login=%s | attempt=%s/%s | %s",
+                            cred_login,
+                            attempt + 1,
+                            attempts,
+                            exc,
+                        )
+                        await sp.__aexit__(None, None, None)
+                        continue
+                    self._session_provider = sp
+                    failover_session_already_entered = True
+                    if attempt > 0:
+                        logger.info(
+                            "University auth succeeded after failover | lk_login=%s",
+                            cred_login,
+                        )
+                    break
+                else:
+                    assert last_auth_error is not None
+                    raise last_auth_error
+        if not failover_session_already_entered:
+            assert self._session_provider is not None
+            await self._session_provider.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:

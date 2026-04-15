@@ -31,11 +31,14 @@ class UniversitySessionProvider:
         login: str = settings.university_login,
         password: str = settings.university_password,
         timeout: float = settings.request_timeout,
+        *,
+        enable_account_failover: bool = False,
     ) -> None:
         self.login = login
         self.password = password
         self.group = group
         self.timeout = timeout
+        self._enable_account_failover = enable_account_failover
 
         self._client: httpx.AsyncClient | None = None
         self._authorized = False
@@ -80,7 +83,7 @@ class UniversitySessionProvider:
             if self._authorized and self._has_time_session():
                 logger.debug("Reusing existing authorized session after lock wait")
                 return self._client  # type: ignore[return-value]
-            await self._do_authorize()
+            await self._authorize_with_account_failover()
             return self._client  # type: ignore[return-value]
 
     async def get_time_session_cookie(self) -> str | None:
@@ -98,7 +101,7 @@ class UniversitySessionProvider:
         logger.info("Refreshing authorization")
         await self._ensure_client()
         async with self._auth_lock:
-            await self._do_authorize()
+            await self._authorize_with_account_failover()
 
     async def _ensure_client(self) -> None:
         if self._client is not None:
@@ -118,6 +121,48 @@ class UniversitySessionProvider:
             },
         )
         logger.debug("HTTP client created")
+
+    async def _authorize_with_account_failover(self) -> None:
+        """Сначала вход с текущей парой; при ошибке — остальные учётки из пула (если включено)."""
+        assert self._client is not None
+        try:
+            await self._do_authorize()
+            return
+        except UniversityAuthError as first_exc:
+            if not self._enable_account_failover:
+                raise first_exc
+            pool = get_settings().university_credentials_pool()
+            failed_pair = (self.login, self.password)
+            last_exc = first_exc
+            other_accounts = [c for c in pool if c != failed_pair]
+            if not other_accounts:
+                raise last_exc
+            logger.warning(
+                "Primary university auth failed, trying other accounts | lk_login=%s | group=%s | %s",
+                failed_pair[0],
+                self.group,
+                first_exc,
+            )
+            for cred_login, cred_password in other_accounts:
+                self.login = cred_login
+                self.password = cred_password
+                try:
+                    await self._do_authorize()
+                    logger.info(
+                        "Authorization succeeded after switching account | lk_login=%s | group=%s",
+                        self.login,
+                        self.group,
+                    )
+                    return
+                except UniversityAuthError as exc:
+                    last_exc = exc
+                    logger.warning(
+                        "University auth failed for alternate account | lk_login=%s | group=%s | %s",
+                        cred_login,
+                        self.group,
+                        exc,
+                    )
+            raise last_exc
 
     async def _do_authorize(self) -> None:
         assert self._client is not None
