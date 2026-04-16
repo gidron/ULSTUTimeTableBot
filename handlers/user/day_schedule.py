@@ -100,9 +100,7 @@ async def send_day_schedule_message(
                         )
                     else:
                         html_text = format_day_schedule_html(outcome)
-                        await message.answer(
-                            html_text, reply_markup=main_menu_user_kb
-                        )
+                        await message.answer(html_text, reply_markup=main_menu_user_kb)
     finally:
         await message_to_delete.delete()
 

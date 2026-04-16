@@ -18,7 +18,9 @@ from misc.states import DaySchedule, SetGroupName, TeacherSchedule
 
 router = Router(name="user_callbacks")
 
-DAY_SCHEDULE_PROMPT = "Введи дату внутри текущего семестра (например <code>18.04</code>)."
+DAY_SCHEDULE_PROMPT = (
+    "Введи дату внутри текущего семестра (например <code>18.04</code>)."
+)
 
 
 @router.callback_query(default_state, F.data == CallbackConstants.CONTACT_DEVELOPER)

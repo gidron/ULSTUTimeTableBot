@@ -146,7 +146,10 @@ def test_build_snapshot_missing_next_raises() -> None:
 
 
 def test_format_day_schedule_has_header_and_disclaimer() -> None:
-    from services.schedule.day_for_date import DayScheduleSnapshot, format_day_schedule_html
+    from services.schedule.day_for_date import (
+        DayScheduleSnapshot,
+        format_day_schedule_html,
+    )
 
     snap = DayScheduleSnapshot(
         group_name="УИДбд-21",

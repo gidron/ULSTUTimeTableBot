@@ -83,14 +83,10 @@ def resolve_semester_calendar_date(day: int, month: int, today: date) -> date:
     try:
         candidate = date(today.year, month, day)
     except ValueError as exc:
-        raise ValueError(
-            "Некорректная дата (такого дня в месяце нет)."
-        ) from exc
+        raise ValueError("Некорректная дата (такого дня в месяце нет).") from exc
 
     if candidate < window_start or candidate > window_end:
-        raise ValueError(
-            f"Дата должна попадать в границы {period_name}."
-        )
+        raise ValueError(f"Дата должна попадать в границы {period_name}.")
     return candidate
 
 
