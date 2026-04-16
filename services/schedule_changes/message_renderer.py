@@ -8,6 +8,11 @@ from datetime import date
 from services.schedule.constants import PAIR_HEADERS, PAIR_TIMES, WEEKDAY_NAMES
 from services.schedule.week_dates import day_calendar_date
 
+SCHEDULE_CHANGE_NOTIFY_FOOTER = (
+    "\n\n🔕 <i>Если не хочешь получать сообщения об изменениях в расписании, "
+    "то можешь их выключить в профиле — /profile</i>"
+)
+
 
 def _pair_time_display(slot_index: int) -> str:
     """Интервал пары с типографским тире, как в примере: 10:00–11:20."""
@@ -207,4 +212,4 @@ def render_schedule_change_message(
 
         week_blocks.append("\n".join(lines))
 
-    return "\n\n".join(week_blocks)
+    return "\n\n".join(week_blocks) + SCHEDULE_CHANGE_NOTIFY_FOOTER
