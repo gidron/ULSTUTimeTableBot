@@ -34,6 +34,12 @@ def profile_inline_kb(
             ],
             [
                 InlineKeyboardButton(
+                    text=BT.SCHEDULE_BY_DATE,
+                    callback_data=CallbackConstants.SCHEDULE_BY_DATE,
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text=notifications_button_text,
                     callback_data=CallbackConstants.TOGGLE_NOTIFICATIONS,
                 )

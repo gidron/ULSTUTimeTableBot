@@ -14,9 +14,11 @@ from keyboards.inline import profile_inline_kb
 from keyboards.factories import AcceptNewUserCallback
 from keyboards.reply import cancel_kb
 from handlers.user.state_handlers.contact_developer import prompt_contact_developer
-from misc.states import SetGroupName, TeacherSchedule
+from misc.states import DaySchedule, SetGroupName, TeacherSchedule
 
 router = Router(name="user_callbacks")
+
+DAY_SCHEDULE_PROMPT = "Введи дату внутри текущего семестра (например <code>18.04</code>)."
 
 
 @router.callback_query(default_state, F.data == CallbackConstants.CONTACT_DEVELOPER)
@@ -36,6 +38,22 @@ async def set_group_name(callback: CallbackQuery, state: FSMContext):
 async def teacher_schedule_entry(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await prompt_teacher_schedule(callback.message, state)
+
+
+@router.callback_query(default_state, F.data == CallbackConstants.SCHEDULE_BY_DATE)
+async def schedule_by_date_entry(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await state.set_state(DaySchedule.waiting_date)
+    await callback.message.answer(DAY_SCHEDULE_PROMPT, reply_markup=cancel_kb)
+
+
+@router.callback_query(
+    DaySchedule.waiting_date, F.data == CallbackConstants.SCHEDULE_BY_DATE
+)
+async def schedule_by_date_repeat(callback: CallbackQuery, state: FSMContext):
+    """Повторное нажатие кнопки во время ввода даты — обновляем подсказку."""
+    await callback.answer()
+    await callback.message.answer(DAY_SCHEDULE_PROMPT, reply_markup=cancel_kb)
 
 
 @router.callback_query(

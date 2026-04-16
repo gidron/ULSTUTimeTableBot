@@ -123,13 +123,13 @@ async def profile(message: Message):
     )
     if user.notify_by_change:
         notify_bullet = (
-            f"• ⚠️ <b>[ТЕСТ]</b> {BT.DISABLE_NOTIFICATIONS} — отключить сообщения, когда на сайте "
+            f"• <i>{BT.DISABLE_NOTIFICATIONS}</i> — отключить сообщения, когда на сайте "
             "появится новая версия расписания твоей группы. "
             "Сейчас уведомления <b>включены</b>."
         )
     else:
         notify_bullet = (
-            f"• ️⚠️ <b>[ТЕСТ]</b> {BT.ENABLE_NOTIFICATIONS} — получать сообщения при обновлении "
+            f"• ️<i>{BT.ENABLE_NOTIFICATIONS}</i> — получать сообщения при обновлении "
             "расписания на сайте для твоей группы. "
             "Сейчас уведомления <b>выключены</b>."
         )
@@ -138,13 +138,15 @@ async def profile(message: Message):
         "<b>⚙ Профиль</b>\n\n"
         f"📚 <b>Группа</b>\n{group_line}\n\n"
         "<b>Что делают кнопки ниже</b>\n"
-        f"• {BT.CHANGE_GROUP} — указать или сменить учебную группу "
+        f"• <i>{BT.CHANGE_GROUP}</i> — указать или сменить учебную группу "
         f"(как в официальном расписании, например <code>УИДбд-21</code>).\n"
-        f"• {BT.TEACHER_SCHEDULE} — посмотреть расписание преподавателя на текущую и "
+        f"• <i>{BT.TEACHER_SCHEDULE}</i> — посмотреть расписание преподавателя на текущую и "
         "следующую неделю (поиск по фамилии и инициалам, как на сайте).\n"
+        f"• <i>{BT.SCHEDULE_BY_DATE}</i> — день по дате <code>ДД.ММ</code> или <code>/day 15.02</code> "
+        "(в границах семестра; ориентировочно по чередованию недель).\n"
         f"{notify_bullet}\n"
-        f"• {BT.CONTACT_DEVELOPER} — отправить вопрос или сообщение разработчику \n"
-        f"• {BT.SCHEDULE_LAYOUT_DAYS_ROWS} / {BT.SCHEDULE_LAYOUT_DAYS_COLUMNS} — как показывать "
+        f"• <i>{BT.CONTACT_DEVELOPER}</i> — отправить вопрос или сообщение разработчику \n"
+        f"• <i>{BT.SCHEDULE_LAYOUT_DAYS_ROWS} / {BT.SCHEDULE_LAYOUT_DAYS_COLUMNS}</i> — как показывать "
         "расписание: дни строками (по умолчанию) или столбцами.\n\n"
         "<i>Нажми нужную кнопку 👇</i>"
     )
