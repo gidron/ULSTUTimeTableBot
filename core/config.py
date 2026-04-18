@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     university_accounts_use_redis_round_robin: bool = False
     university_accounts_redis_counter_key: str = "ulstu:univ_account_rr"
 
+    # Кэш cookies авторизованной сессии УлГТУ в Redis: пока TTL не истёк, переиспользуем
+    # cookies аккаунта и пропускаем полный логин. Без Redis кэш автоматически no-op.
+    university_session_cache_enabled: bool = True
+    university_session_cache_key_prefix: str = "ulstu:session"
+    # Значение с запасом ~20% ниже реального TTL, замеренного scripts/probe_session_ttl.py.
+    university_session_ttl_seconds: int = 60 * 60 * 24
+
     login_url: str
     home_url: str
     timetable_api_url: str

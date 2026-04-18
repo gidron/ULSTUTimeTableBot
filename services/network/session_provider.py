@@ -8,6 +8,7 @@ import logging
 import httpx
 
 from core.config import get_settings
+from . import session_cache
 from .exceptions import UniversityAuthError
 from .http_retry import request_with_retry
 
@@ -19,6 +20,8 @@ class UniversitySessionProvider:
     """Контекстный менеджер: при необходимости выполняет цикл логина и открытия страниц.
 
     Один экземпляр на один цикл ``async with UniversityClient`` — клиент закрывается при выходе.
+    Cookies авторизованной сессии кэшируются в Redis по логину и переиспользуются между
+    экземплярами, пока TTL не истёк и сервер отвечает без редиректа на форму логина.
     """
 
     LOGIN_URL = settings.login_url
@@ -99,11 +102,14 @@ class UniversitySessionProvider:
 
     async def refresh_authorization(self) -> None:
         logger.info("Refreshing authorization")
-        await self._ensure_client()
+        await self._ensure_client(use_cache=False)
         async with self._auth_lock:
+            # Кэшированные cookies явно помечаются мёртвыми: иначе при рефреше они продолжат
+            # «гонять» запросы мимо нового логина и сломают соседние процессы.
+            await session_cache.invalidate(self.login)
             await self._authorize_with_account_failover()
 
-    async def _ensure_client(self) -> None:
+    async def _ensure_client(self, *, use_cache: bool = True) -> None:
         if self._client is not None:
             return
 
@@ -121,6 +127,35 @@ class UniversitySessionProvider:
             },
         )
         logger.debug("HTTP client created")
+
+        if use_cache:
+            await self._try_hydrate_from_cache()
+
+    async def _try_hydrate_from_cache(self) -> None:
+        """Если в Redis есть живая запись для self.login — восстанавливаем cookies и считаем сессию уже авторизованной."""
+        if self._client is None:
+            return
+        cached = await session_cache.load(self.login)
+        if cached is None:
+            logger.debug("No cached session found | login=%s", self.login)
+            return
+        added = session_cache.hydrate_cookies(self._client, cached.cookies)
+        logger.debug(
+            "Hydrated cookies from cache | login=%s | added=%s", self.login, added
+        )
+        if self._has_time_session():
+            self._authorized = True
+            logger.info(
+                "Reusing cached session | login=%s | group=%s | saved_at=%s",
+                self.login,
+                self.group,
+                cached.saved_at,
+            )
+        else:
+            logger.debug(
+                "Cached cookies have no time.ulstu.ru session cookie — will re-login | login=%s",
+                self.login,
+            )
 
     async def _authorize_with_account_failover(self) -> None:
         """Сначала вход с текущей парой; при ошибке — остальные учётки из пула (если включено)."""
@@ -143,6 +178,8 @@ class UniversitySessionProvider:
                 self.group,
                 first_exc,
             )
+            # Протухшая запись кэша для упавшей учётки больше не полезна.
+            await session_cache.invalidate(failed_pair[0])
             for cred_login, cred_password in other_accounts:
                 self.login = cred_login
                 self.password = cred_password
@@ -162,6 +199,7 @@ class UniversitySessionProvider:
                         self.group,
                         exc,
                     )
+                    await session_cache.invalidate(cred_login)
             raise last_exc
 
     async def _do_authorize(self) -> None:
@@ -272,6 +310,32 @@ class UniversitySessionProvider:
             "Authorization completed successfully | lk_login=%s | group=%s",
             self.login,
             self.group,
+        )
+
+        await self._persist_session_to_cache()
+
+    async def _persist_session_to_cache(self) -> None:
+        if self._client is None:
+            return
+        cfg = get_settings()
+        if not cfg.university_session_cache_enabled:
+            return
+        try:
+            cookies = session_cache.serialize_cookies(self._client.cookies.jar)
+        except Exception:
+            logger.exception(
+                "Failed to serialize cookies for cache | login=%s", self.login
+            )
+            return
+        await session_cache.save(
+            self.login,
+            cookies,
+            ttl_seconds=cfg.university_session_ttl_seconds,
+        )
+        logger.debug(
+            "Session cookies persisted to cache | login=%s | count=%s",
+            self.login,
+            len(cookies),
         )
 
     def _has_time_session(self) -> bool:
