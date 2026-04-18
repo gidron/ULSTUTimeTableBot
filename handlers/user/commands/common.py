@@ -10,8 +10,9 @@ from core.config import get_settings
 from database.models import User
 from handlers.user.state_handlers.contact_developer import prompt_contact_developer
 from handlers.user.state_handlers.set_group_name import prompt_set_group
+from handlers.user.tools.profile_messages import build_profile_root_text
 from keyboards.builders import accept_new_user_kb
-from keyboards.inline import profile_inline_kb
+from keyboards.inline import profile_root_inline_kb
 from keyboards.reply import main_menu_user_kb
 from constants.buttons_text import ButtonText as BT
 from misc.states import SetGroupName
@@ -116,46 +117,9 @@ async def show_week(message: Message, command: CommandObject | None = None):
 @router.message(Command(CommandText.PROFILE))
 async def profile(message: Message):
     user = await User.get(tg_id=message.from_user.id)
-    group_line = (
-        f"<b>{user.group_name}</b>"
-        if user.group_name
-        else "<i>не указана — без группы расписание недоступно</i>"
-    )
-    if user.notify_by_change:
-        notify_bullet = (
-            f"• <i>{BT.DISABLE_NOTIFICATIONS}</i> — отключить сообщения, когда на сайте "
-            "появится новая версия расписания твоей группы. "
-            "Сейчас уведомления <b>включены</b>."
-        )
-    else:
-        notify_bullet = (
-            f"• ️<i>{BT.ENABLE_NOTIFICATIONS}</i> — получать сообщения при обновлении "
-            "расписания на сайте для твоей группы. "
-            "Сейчас уведомления <b>выключены</b>."
-        )
-
-    text = (
-        "<b>⚙ Профиль</b>\n\n"
-        f"📚 <b>Группа</b>\n{group_line}\n\n"
-        "<b>Что делают кнопки ниже</b>\n"
-        f"• <i>{BT.CHANGE_GROUP}</i> — указать или сменить учебную группу "
-        f"(как в официальном расписании, например <code>УИДбд-21</code>).\n"
-        f"• <i>{BT.TEACHER_SCHEDULE}</i> — посмотреть расписание преподавателя на текущую и "
-        "следующую неделю (поиск по фамилии и инициалам, как на сайте).\n"
-        f"• <i>{BT.SCHEDULE_BY_DATE}</i> — день по дате <code>ДД.ММ</code> или <code>/day 15.02</code> "
-        "(в границах семестра; ориентировочно по чередованию недель).\n"
-        f"{notify_bullet}\n"
-        f"• <i>{BT.CONTACT_DEVELOPER}</i> — отправить вопрос или сообщение разработчику \n"
-        f"• <i>{BT.SCHEDULE_LAYOUT_DAYS_ROWS} / {BT.SCHEDULE_LAYOUT_DAYS_COLUMNS}</i> — как показывать "
-        "расписание: дни строками (по умолчанию) или столбцами.\n\n"
-        "<i>Нажми нужную кнопку 👇</i>"
-    )
     await message.answer(
-        text,
-        reply_markup=profile_inline_kb(
-            user.notify_by_change,
-            parse_schedule_layout(user.schedule_layout),
-        ),
+        build_profile_root_text(user),
+        reply_markup=profile_root_inline_kb(),
     )
 
 

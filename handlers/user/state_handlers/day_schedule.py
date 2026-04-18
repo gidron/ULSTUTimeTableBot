@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from constants.buttons_text import ButtonText as BT
-from handlers.user.day_schedule import send_day_schedule_message
+from handlers.user.tools.day_schedule import send_day_schedule_message
 from keyboards.reply import main_menu_user_kb
 from misc.states import DaySchedule
 from services.schedule.day_for_date import parse_dm_text

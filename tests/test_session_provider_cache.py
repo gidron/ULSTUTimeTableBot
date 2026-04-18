@@ -7,7 +7,6 @@ import json
 import pytest
 
 from core.config import get_settings
-from services.network import session_cache
 from services.network.exceptions import UniversityAuthError
 from services.network.session_provider import UniversitySessionProvider
 

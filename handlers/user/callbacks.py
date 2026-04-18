@@ -10,13 +10,67 @@ from handlers.user.state_handlers.set_group_name import SET_GROUP_PROMPT
 from handlers.user.state_handlers.teacher_schedule import (
     prompt_teacher_schedule,
 )
-from keyboards.inline import profile_inline_kb
+from handlers.user.tools.profile_messages import (
+    build_profile_group_page_text,
+    build_profile_info_page_text,
+    build_profile_root_text,
+    build_profile_settings_page_text,
+)
+from keyboards.inline import (
+    profile_group_schedule_inline_kb,
+    profile_info_inline_kb,
+    profile_root_inline_kb,
+    profile_settings_inline_kb,
+)
 from keyboards.factories import AcceptNewUserCallback
 from keyboards.reply import cancel_kb
 from handlers.user.state_handlers.contact_developer import prompt_contact_developer
 from misc.states import DaySchedule, SetGroupName, TeacherSchedule
 
 router = Router(name="user_callbacks")
+
+
+@router.callback_query(default_state, F.data == CallbackConstants.PROFILE_ROOT)
+async def profile_open_root(callback: CallbackQuery):
+    await callback.answer()
+    user = await User.get(tg_id=callback.from_user.id)
+    await callback.message.edit_text(
+        build_profile_root_text(user),
+        reply_markup=profile_root_inline_kb(),
+    )
+
+
+@router.callback_query(default_state, F.data == CallbackConstants.PROFILE_PAGE_GROUP)
+async def profile_open_group_page(callback: CallbackQuery):
+    await callback.answer()
+    user = await User.get(tg_id=callback.from_user.id)
+    await callback.message.edit_text(
+        build_profile_group_page_text(user),
+        reply_markup=profile_group_schedule_inline_kb(),
+    )
+
+
+@router.callback_query(default_state, F.data == CallbackConstants.PROFILE_PAGE_SETTINGS)
+async def profile_open_settings_page(callback: CallbackQuery):
+    await callback.answer()
+    user = await User.get(tg_id=callback.from_user.id)
+    await callback.message.edit_text(
+        build_profile_settings_page_text(user),
+        reply_markup=profile_settings_inline_kb(
+            user.notify_by_change,
+            parse_schedule_layout(user.schedule_layout),
+        ),
+    )
+
+
+@router.callback_query(default_state, F.data == CallbackConstants.PROFILE_PAGE_INFO)
+async def profile_open_info_page(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.edit_text(
+        build_profile_info_page_text(),
+        reply_markup=profile_info_inline_kb(),
+    )
+
 
 DAY_SCHEDULE_PROMPT = (
     "Введи дату внутри текущего семестра (например <code>18.04</code>)."
@@ -75,11 +129,12 @@ async def toggle_notifications(callback: CallbackQuery):
 
     toggle_text = "включены" if user.notify_by_change else "выключены"
     await callback.answer(f"Уведомления {toggle_text}")
-    await callback.message.edit_reply_markup(
-        reply_markup=profile_inline_kb(
+    await callback.message.edit_text(
+        build_profile_settings_page_text(user),
+        reply_markup=profile_settings_inline_kb(
             user.notify_by_change,
             parse_schedule_layout(user.schedule_layout),
-        )
+        ),
     )
 
 
@@ -96,11 +151,12 @@ async def toggle_schedule_layout(callback: CallbackQuery):
     )
     await user.save()
     await callback.answer("Вид расписания сохранён")
-    await callback.message.edit_reply_markup(
-        reply_markup=profile_inline_kb(
+    await callback.message.edit_text(
+        build_profile_settings_page_text(user),
+        reply_markup=profile_settings_inline_kb(
             user.notify_by_change,
             parse_schedule_layout(user.schedule_layout),
-        )
+        ),
     )
 
 

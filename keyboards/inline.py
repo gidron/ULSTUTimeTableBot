@@ -12,18 +12,46 @@ def _schedule_layout_profile_label(layout: ScheduleLayout) -> str:
     return BT.SCHEDULE_LAYOUT_DAYS_COLUMNS
 
 
-def profile_inline_kb(
-    notifications_enabled: bool,
-    schedule_layout: ScheduleLayout = ScheduleLayout.HORIZONTAL,
-) -> InlineKeyboardMarkup:
-    notifications_button_text = (
-        BT.DISABLE_NOTIFICATIONS if notifications_enabled else BT.ENABLE_NOTIFICATIONS
-    )
+def _profile_back_row() -> list[InlineKeyboardButton]:
+    return [
+        InlineKeyboardButton(
+            text=BT.PROFILE_BACK, callback_data=CallbackConstants.PROFILE_ROOT
+        )
+    ]
+
+
+def profile_root_inline_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=BT.CHANGE_GROUP, callback_data=CallbackConstants.SET_GROUP_NAME
+                    text=BT.PROFILE_PANEL_GROUP_SCHEDULE,
+                    callback_data=CallbackConstants.PROFILE_PAGE_GROUP,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=BT.PROFILE_PANEL_SETTINGS,
+                    callback_data=CallbackConstants.PROFILE_PAGE_SETTINGS,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=BT.PROFILE_PANEL_INFO,
+                    callback_data=CallbackConstants.PROFILE_PAGE_INFO,
+                )
+            ],
+        ]
+    )
+
+
+def profile_group_schedule_inline_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=BT.CHANGE_GROUP,
+                    callback_data=CallbackConstants.SET_GROUP_NAME,
                 )
             ],
             [
@@ -38,6 +66,20 @@ def profile_inline_kb(
                     callback_data=CallbackConstants.SCHEDULE_BY_DATE,
                 )
             ],
+            _profile_back_row(),
+        ]
+    )
+
+
+def profile_settings_inline_kb(
+    notifications_enabled: bool,
+    schedule_layout: ScheduleLayout = ScheduleLayout.HORIZONTAL,
+) -> InlineKeyboardMarkup:
+    notifications_button_text = (
+        BT.DISABLE_NOTIFICATIONS if notifications_enabled else BT.ENABLE_NOTIFICATIONS
+    )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text=notifications_button_text,
@@ -50,12 +92,21 @@ def profile_inline_kb(
                     callback_data=CallbackConstants.TOGGLE_SCHEDULE_LAYOUT,
                 )
             ],
+            _profile_back_row(),
+        ]
+    )
+
+
+def profile_info_inline_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text=BT.CONTACT_DEVELOPER,
                     callback_data=CallbackConstants.CONTACT_DEVELOPER,
                 )
             ],
+            _profile_back_row(),
         ]
     )
 
