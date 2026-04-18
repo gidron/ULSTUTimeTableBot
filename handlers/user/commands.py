@@ -1,6 +1,7 @@
 from aiogram import F, Router
 from aiogram.filters import CommandObject, CommandStart, Command
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import default_state
 from aiogram.types import BufferedInputFile, Message
 from aiogram.utils.chat_action import ChatActionSender
 
@@ -10,6 +11,7 @@ from core.config import get_settings
 from database.models import User
 from handlers.user.state_handlers.contact_developer import prompt_contact_developer
 from handlers.user.state_handlers.set_group_name import prompt_set_group
+from handlers.user.tools.day_schedule import send_day_schedule_message
 from handlers.user.tools.profile_messages import build_profile_root_text
 from keyboards.builders import accept_new_user_kb
 from keyboards.inline import profile_root_inline_kb
@@ -18,10 +20,34 @@ from constants.buttons_text import ButtonText as BT
 from misc.states import SetGroupName
 from misc.user_admin_card import format_user_admin_card_html
 from services.schedule import ScheduleService
+from services.schedule.day_for_date import parse_dm_text
 from services.schedule.parser import TimetableParseError
 from services.schedule_changes.demo_changes import build_demo_notify_message
 
 router = Router(name="user_commands")
+
+DATE_DM_TEXT_RE = r"^\s*\d{1,2}\.\d{1,2}\s*$"
+
+
+@router.message(Command(CommandText.DAY))
+async def day_command(message: Message, command: CommandObject) -> None:
+    args = (command.args or "").strip()
+    if not args:
+        await message.answer(
+            "Укажи дату: <code>/day 15.02</code> или одним сообщением <code>15.02</code>."
+        )
+        return
+    if parse_dm_text(args) is None:
+        await message.answer(
+            "Формат даты: <code>ДД.ММ</code>, например <code>15.02</code>."
+        )
+        return
+    await send_day_schedule_message(message, args)
+
+
+@router.message(default_state, F.text.regexp(DATE_DM_TEXT_RE))
+async def day_free_text_dm(message: Message) -> None:
+    await send_day_schedule_message(message, message.text or "")
 
 
 @router.message(CommandStart())
