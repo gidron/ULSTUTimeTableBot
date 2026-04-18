@@ -24,6 +24,13 @@ FILTER_LABELS: dict[str, str] = {
 
 FILTER_ORDER: tuple[str, ...] = ("all", "active", "banned", "admins", "nogroup")
 
+SORT_NAME = "name"
+SORT_SEEN = "seen"
+SORT_LABELS: dict[str, str] = {
+    SORT_NAME: BT.ADMIN_SORT_LABEL_NAME,
+    SORT_SEEN: BT.ADMIN_SORT_LABEL_SEEN,
+}
+
 
 def admin_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -77,17 +84,40 @@ def broadcast_hint_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[admin_back_to_menu_row()])
 
 
-def _user_row_label(user: User) -> str:
+def _format_seen_short(user: User) -> str:
+    if user.last_day_online is None:
+        return "—"
+    d = user.last_day_online
+    return f"{d.day:02d}.{d.month:02d}"
+
+
+def _user_row_label(user: User, *, sort: str = SORT_NAME) -> str:
     flags: list[str] = []
     if user.is_admin:
         flags.append("💀")
     flags.append("✔" if user.is_active else "❌")
     flag_str = "".join(flags)
     group = user.group_name or "—"
-    label = f"{flag_str} {group} · {user.name}"
+    if sort == SORT_SEEN:
+        label = f"{flag_str} {_format_seen_short(user)} · {group} · {user.name}"
+    else:
+        label = f"{flag_str} {group} · {user.name}"
     if len(label) > 64:
         label = label[:61] + "..."
     return label
+
+
+def _sort_toggle_row(filter_key: str, sort: str) -> list[InlineKeyboardButton]:
+    next_sort = SORT_SEEN if sort == SORT_NAME else SORT_NAME
+    label = BT.ADMIN_SORT_BY_SEEN if next_sort == SORT_SEEN else BT.ADMIN_SORT_BY_NAME
+    return [
+        InlineKeyboardButton(
+            text=label,
+            callback_data=AdminListCallback(
+                flt=filter_key, page=0, sort=next_sort
+            ).pack(),
+        )
+    ]
 
 
 def users_list_kb(
@@ -96,17 +126,19 @@ def users_list_kb(
     filter_key: str,
     page: int,
     total_pages: int,
+    sort: str = SORT_NAME,
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for user in users:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=_user_row_label(user),
+                    text=_user_row_label(user, sort=sort),
                     callback_data=AdminUserCallback(
                         tg_id=int(user.tg_id),
                         back_flt=filter_key,
                         back_page=page,
+                        back_sort=sort,
                     ).pack(),
                 )
             ]
@@ -120,12 +152,14 @@ def users_list_kb(
         filter_row.append(
             InlineKeyboardButton(
                 text=label,
-                callback_data=AdminListCallback(flt=key, page=0).pack(),
+                callback_data=AdminListCallback(flt=key, page=0, sort=sort).pack(),
             )
         )
     rows.append(filter_row[:3])
     if len(filter_row) > 3:
         rows.append(filter_row[3:])
+
+    rows.append(_sort_toggle_row(filter_key, sort))
 
     nav_row: list[InlineKeyboardButton] = []
     has_prev = page > 0
@@ -135,14 +169,16 @@ def users_list_kb(
             InlineKeyboardButton(
                 text=BT.ADMIN_PAGE_PREV,
                 callback_data=AdminListCallback(
-                    flt=filter_key, page=page - 1
+                    flt=filter_key, page=page - 1, sort=sort
                 ).pack(),
             )
         )
     nav_row.append(
         InlineKeyboardButton(
             text=f"{page + 1}/{max(total_pages, 1)}",
-            callback_data=AdminListCallback(flt=filter_key, page=page).pack(),
+            callback_data=AdminListCallback(
+                flt=filter_key, page=page, sort=sort
+            ).pack(),
         )
     )
     if has_next:
@@ -150,7 +186,7 @@ def users_list_kb(
             InlineKeyboardButton(
                 text=BT.ADMIN_PAGE_NEXT,
                 callback_data=AdminListCallback(
-                    flt=filter_key, page=page + 1
+                    flt=filter_key, page=page + 1, sort=sort
                 ).pack(),
             )
         )
@@ -165,17 +201,19 @@ def search_results_kb(
     *,
     back_flt: str = "all",
     back_page: int = 0,
+    back_sort: str = SORT_NAME,
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for user in users:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=_user_row_label(user),
+                    text=_user_row_label(user, sort=back_sort),
                     callback_data=AdminUserCallback(
                         tg_id=int(user.tg_id),
                         back_flt=back_flt,
                         back_page=back_page,
+                        back_sort=back_sort,
                     ).pack(),
                 )
             ]
@@ -190,6 +228,7 @@ def user_card_kb(
     actor_tg_id: int,
     back_flt: str,
     back_page: int,
+    back_sort: str = SORT_NAME,
 ) -> InlineKeyboardMarkup:
     is_self = int(user.tg_id) == int(actor_tg_id)
     rows: list[list[InlineKeyboardButton]] = []
@@ -199,59 +238,36 @@ def user_card_kb(
         BT.ADMIN_ACT_DROP_ADMIN if user.is_admin else BT.ADMIN_ACT_MAKE_ADMIN
     )
 
+    def _action(action: str) -> str:
+        return AdminActionCallback(
+            tg_id=int(user.tg_id),
+            action=action,
+            back_flt=back_flt,
+            back_page=back_page,
+            back_sort=back_sort,
+        ).pack()
+
     toggle_row: list[InlineKeyboardButton] = []
     if not is_self:
         toggle_row.append(
-            InlineKeyboardButton(
-                text=ban_label,
-                callback_data=AdminActionCallback(
-                    tg_id=int(user.tg_id),
-                    action="ban",
-                    back_flt=back_flt,
-                    back_page=back_page,
-                ).pack(),
-            )
+            InlineKeyboardButton(text=ban_label, callback_data=_action("ban"))
         )
     if not (is_self and user.is_admin):
         toggle_row.append(
-            InlineKeyboardButton(
-                text=admin_label,
-                callback_data=AdminActionCallback(
-                    tg_id=int(user.tg_id),
-                    action="admin",
-                    back_flt=back_flt,
-                    back_page=back_page,
-                ).pack(),
-            )
+            InlineKeyboardButton(text=admin_label, callback_data=_action("admin"))
         )
     if toggle_row:
         rows.append(toggle_row)
 
     rows.append(
-        [
-            InlineKeyboardButton(
-                text=BT.ADMIN_ACT_DM,
-                callback_data=AdminActionCallback(
-                    tg_id=int(user.tg_id),
-                    action="dm",
-                    back_flt=back_flt,
-                    back_page=back_page,
-                ).pack(),
-            )
-        ]
+        [InlineKeyboardButton(text=BT.ADMIN_ACT_DM, callback_data=_action("dm"))]
     )
 
     if not is_self:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=BT.ADMIN_ACT_DELETE,
-                    callback_data=AdminActionCallback(
-                        tg_id=int(user.tg_id),
-                        action="delete",
-                        back_flt=back_flt,
-                        back_page=back_page,
-                    ).pack(),
+                    text=BT.ADMIN_ACT_DELETE, callback_data=_action("delete")
                 )
             ]
         )
@@ -261,7 +277,7 @@ def user_card_kb(
             InlineKeyboardButton(
                 text=BT.ADMIN_BACK_LIST,
                 callback_data=AdminListCallback(
-                    flt=back_flt, page=back_page
+                    flt=back_flt, page=back_page, sort=back_sort
                 ).pack(),
             ),
             InlineKeyboardButton(
@@ -278,6 +294,7 @@ def delete_confirm_kb(
     *,
     back_flt: str,
     back_page: int,
+    back_sort: str = SORT_NAME,
 ) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -289,6 +306,7 @@ def delete_confirm_kb(
                         action="delete_confirm",
                         back_flt=back_flt,
                         back_page=back_page,
+                        back_sort=back_sort,
                     ).pack(),
                 )
             ],
@@ -300,6 +318,7 @@ def delete_confirm_kb(
                         action="delete_cancel",
                         back_flt=back_flt,
                         back_page=back_page,
+                        back_sort=back_sort,
                     ).pack(),
                 )
             ],
@@ -320,7 +339,9 @@ def dm_cancel_kb() -> InlineKeyboardMarkup:
     )
 
 
-def post_delete_nav_kb(*, back_flt: str, back_page: int) -> InlineKeyboardMarkup:
+def post_delete_nav_kb(
+    *, back_flt: str, back_page: int, back_sort: str = SORT_NAME
+) -> InlineKeyboardMarkup:
     """Подвал-навигация после удаления пользователя (карточки уже нет)."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -328,7 +349,7 @@ def post_delete_nav_kb(*, back_flt: str, back_page: int) -> InlineKeyboardMarkup
                 InlineKeyboardButton(
                     text=BT.ADMIN_BACK_LIST,
                     callback_data=AdminListCallback(
-                        flt=back_flt, page=back_page
+                        flt=back_flt, page=back_page, sort=back_sort
                     ).pack(),
                 ),
                 InlineKeyboardButton(

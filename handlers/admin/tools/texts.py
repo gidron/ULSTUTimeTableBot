@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import date
 
 from constants.buttons_text import ButtonText as BT
 from constants.schedule_layout import parse_schedule_layout
 from database.models import User
-from keyboards.admin import FILTER_LABELS
+from keyboards.admin import FILTER_LABELS, SORT_LABELS
 
 SEARCH_PROMPT = (
     "<b>🔍 Поиск пользователя</b>\n\n"
@@ -60,11 +61,20 @@ async def build_stats_text() -> str:
     return "\n".join(lines)
 
 
-def build_list_text(filter_key: str, total: int, page: int, total_pages: int) -> str:
+def build_list_text(
+    filter_key: str,
+    total: int,
+    page: int,
+    total_pages: int,
+    *,
+    sort: str = "name",
+) -> str:
     label = FILTER_LABELS.get(filter_key, filter_key)
+    sort_label = SORT_LABELS.get(sort, sort)
     return (
         f"<b>{BT.ADMIN_MENU_USERS}</b>\n"
         f"Фильтр: <b>{label}</b>\n"
+        f"Сортировка: <b>{sort_label}</b>\n"
         f"Найдено: <b>{total}</b>\n"
         f"Страница: <b>{min(page + 1, max(total_pages, 1))}/{max(total_pages, 1)}</b>"
     )
@@ -74,10 +84,36 @@ def _bool_label(value: bool) -> str:
     return "✅" if value else "❌"
 
 
+def _format_last_seen(value: date | None) -> str:
+    """ДД.ММ.ГГГГ + относительное «N дн./нед./мес. назад»."""
+    if value is None:
+        return "никогда"
+    today = date.today()
+    delta_days = (today - value).days
+    iso = f"{value.day:02d}.{value.month:02d}.{value.year}"
+    if delta_days < 0:
+        relative = "в будущем"
+    elif delta_days == 0:
+        relative = "сегодня"
+    elif delta_days == 1:
+        relative = "вчера"
+    elif delta_days < 7:
+        relative = f"{delta_days} дн. назад"
+    elif delta_days < 30:
+        weeks = delta_days // 7
+        relative = f"{weeks} нед. назад"
+    elif delta_days < 365:
+        months = delta_days // 30
+        relative = f"{months} мес. назад"
+    else:
+        years = delta_days // 365
+        relative = f"{years} г. назад"
+    return f"<code>{iso}</code> ({relative})"
+
+
 def build_user_card_text(user: User, *, header: str | None = None) -> str:
     username = f"@{user.username}" if user.username else "—"
     layout = parse_schedule_layout(user.schedule_layout).value
-    last_seen = user.last_day_online.isoformat() if user.last_day_online else "—"
     title = header or "<b>👤 Карточка пользователя</b>"
     lines = [
         title,
@@ -91,7 +127,7 @@ def build_user_card_text(user: User, *, header: str | None = None) -> str:
         f"Админ: {_bool_label(user.is_admin)}",
         f"Уведомления: {_bool_label(user.notify_by_change)}",
         f"Раскладка: <code>{layout}</code>",
-        f"Последний онлайн: <code>{last_seen}</code>",
+        f"Последний онлайн: {_format_last_seen(user.last_day_online)}",
     ]
     return "\n".join(lines)
 

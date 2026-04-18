@@ -21,12 +21,14 @@ class AdminMenuCallback(CallbackData, prefix="adm_menu"):
 class AdminListCallback(CallbackData, prefix="adm_list"):
     flt: str  # all | active | banned | admins | nogroup
     page: int
+    sort: str = "name"  # name | seen
 
 
 class AdminUserCallback(CallbackData, prefix="adm_user"):
     tg_id: int
     back_flt: str
     back_page: int
+    back_sort: str = "name"
 
 
 class AdminActionCallback(CallbackData, prefix="adm_act"):
@@ -34,3 +36,4 @@ class AdminActionCallback(CallbackData, prefix="adm_act"):
     action: str  # ban | admin | delete | dm | delete_confirm | delete_cancel
     back_flt: str
     back_page: int
+    back_sort: str = "name"

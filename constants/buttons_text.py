@@ -40,6 +40,11 @@ class ButtonText(StrEnum):
     ADMIN_PAGE_PREV = "« Назад"
     ADMIN_PAGE_NEXT = "Вперед »"
 
+    ADMIN_SORT_BY_NAME = "🔤 Сорт.: имя"
+    ADMIN_SORT_BY_SEEN = "🕒 Сорт.: посл. онлайн"
+    ADMIN_SORT_LABEL_NAME = "имя/группа"
+    ADMIN_SORT_LABEL_SEEN = "посл. онлайн"
+
     ADMIN_ACT_BAN = "🚫 Забанить"
     ADMIN_ACT_UNBAN = "✅ Разбанить"
     ADMIN_ACT_MAKE_ADMIN = "💀 Сделать админом"

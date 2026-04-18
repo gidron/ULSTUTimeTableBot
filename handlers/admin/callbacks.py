@@ -20,6 +20,7 @@ from handlers.admin.tools.texts import (
 )
 from keyboards.admin import (
     PAGE_SIZE,
+    SORT_SEEN,
     admin_menu_kb,
     broadcast_hint_kb,
     delete_confirm_kb,
@@ -80,6 +81,12 @@ async def menu_broadcast_hint(callback: CallbackQuery, state: FSMContext) -> Non
 # ---------- users list ----------
 
 
+def _order_fields(sort: str) -> tuple[str, ...]:
+    if sort == SORT_SEEN:
+        return ("-last_day_online", "group_name", "name")
+    return ("group_name", "name")
+
+
 @router.callback_query(AdminListCallback.filter())
 async def show_users_list(
     callback: CallbackQuery,
@@ -88,25 +95,27 @@ async def show_users_list(
 ) -> None:
     await state.set_state()
     flt = callback_data.flt
+    sort = callback_data.sort
     qs = filtered_users_queryset(flt)
     total = await qs.count()
     total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
     page = max(0, min(callback_data.page, total_pages - 1))
 
     users = (
-        await qs.order_by("group_name", "name")
+        await qs.order_by(*_order_fields(sort))
         .offset(page * PAGE_SIZE)
         .limit(PAGE_SIZE)
     )
 
     await callback.answer()
     await callback.message.edit_text(
-        build_list_text(flt, total, page, total_pages),
+        build_list_text(flt, total, page, total_pages, sort=sort),
         reply_markup=users_list_kb(
             users,
             filter_key=flt,
             page=page,
             total_pages=total_pages,
+            sort=sort,
         ),
     )
 
@@ -120,6 +129,7 @@ async def _render_card(
     *,
     back_flt: str,
     back_page: int,
+    back_sort: str,
 ) -> None:
     await callback.message.edit_text(
         build_user_card_text(user),
@@ -128,6 +138,7 @@ async def _render_card(
             actor_tg_id=callback.from_user.id,
             back_flt=back_flt,
             back_page=back_page,
+            back_sort=back_sort,
         ),
     )
 
@@ -155,6 +166,7 @@ async def open_user_card(
         user,
         back_flt=callback_data.back_flt,
         back_page=callback_data.back_page,
+        back_sort=callback_data.back_sort,
     )
 
 
@@ -189,6 +201,7 @@ async def action_ban(
         user,
         back_flt=callback_data.back_flt,
         back_page=callback_data.back_page,
+        back_sort=callback_data.back_sort,
     )
 
 
@@ -218,6 +231,7 @@ async def action_admin(
         user,
         back_flt=callback_data.back_flt,
         back_page=callback_data.back_page,
+        back_sort=callback_data.back_sort,
     )
 
 
@@ -238,6 +252,7 @@ async def action_delete_prompt(
             user,
             back_flt=callback_data.back_flt,
             back_page=callback_data.back_page,
+            back_sort=callback_data.back_sort,
         ),
     )
 
@@ -266,6 +281,7 @@ async def action_delete_confirm(
         reply_markup=post_delete_nav_kb(
             back_flt=callback_data.back_flt,
             back_page=callback_data.back_page,
+            back_sort=callback_data.back_sort,
         ),
     )
 
@@ -283,6 +299,7 @@ async def action_delete_cancel(
         user,
         back_flt=callback_data.back_flt,
         back_page=callback_data.back_page,
+        back_sort=callback_data.back_sort,
     )
 
 
@@ -300,6 +317,7 @@ async def action_dm_prompt(
         target_tg_id=int(user.tg_id),
         back_flt=callback_data.back_flt,
         back_page=callback_data.back_page,
+        back_sort=callback_data.back_sort,
     )
     await callback.answer()
     await callback.message.edit_text(
