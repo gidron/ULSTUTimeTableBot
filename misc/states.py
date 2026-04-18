@@ -15,3 +15,11 @@ class DaySchedule(StatesGroup):
 
 class ContactDeveloper(StatesGroup):
     message = State()
+
+
+class AdminSearch(StatesGroup):
+    query = State()
+
+
+class AdminDM(StatesGroup):
+    message = State()

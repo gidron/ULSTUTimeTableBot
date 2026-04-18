@@ -47,3 +47,4 @@ def setup_logging() -> None:
     _configure_named_logger("client", "client.log")
     _configure_named_logger("parser", "parser.log")
     _configure_named_logger("renderer", "renderer.log")
+    _configure_named_logger("admin_audit", "admin_actions.log")
