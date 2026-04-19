@@ -31,6 +31,28 @@ SORT_LABELS: dict[str, str] = {
     SORT_SEEN: BT.ADMIN_SORT_LABEL_SEEN,
 }
 
+# Маркер "вернуться к результатам поиска" вместо обычного списка.
+SEARCH_BACK_FLT = "_search"
+
+
+def _back_to_origin_button(
+    *, back_flt: str, back_page: int, back_sort: str
+) -> InlineKeyboardButton:
+    """Кнопка «назад» к списку или к результатам поиска."""
+    if back_flt == SEARCH_BACK_FLT:
+        return InlineKeyboardButton(
+            text=BT.ADMIN_BACK_SEARCH,
+            callback_data=AdminListCallback(
+                flt=SEARCH_BACK_FLT, page=0, sort=back_sort
+            ).pack(),
+        )
+    return InlineKeyboardButton(
+        text=BT.ADMIN_BACK_LIST,
+        callback_data=AdminListCallback(
+            flt=back_flt, page=back_page, sort=back_sort
+        ).pack(),
+    )
+
 
 def admin_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -272,18 +294,19 @@ def user_card_kb(
             ]
         )
 
-    rows.append(
+    rows.extend(
         [
-            InlineKeyboardButton(
-                text=BT.ADMIN_BACK_LIST,
-                callback_data=AdminListCallback(
-                    flt=back_flt, page=back_page, sort=back_sort
-                ).pack(),
+            [
+            _back_to_origin_button(
+                back_flt=back_flt, back_page=back_page, back_sort=back_sort
             ),
+            ],
+            [
             InlineKeyboardButton(
                 text=BT.ADMIN_BACK_MENU,
                 callback_data=AdminMenuCallback(page="root").pack(),
             ),
+            ]
         ]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -346,11 +369,8 @@ def post_delete_nav_kb(
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
-                    text=BT.ADMIN_BACK_LIST,
-                    callback_data=AdminListCallback(
-                        flt=back_flt, page=back_page, sort=back_sort
-                    ).pack(),
+                _back_to_origin_button(
+                    back_flt=back_flt, back_page=back_page, back_sort=back_sort
                 ),
                 InlineKeyboardButton(
                     text=BT.ADMIN_BACK_MENU,

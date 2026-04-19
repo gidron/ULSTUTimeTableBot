@@ -8,7 +8,7 @@ from aiogram.types import Message
 
 from constants.buttons_text import ButtonText as BT
 from handlers.user.tools.day_schedule import send_day_schedule_message
-from keyboards.reply import main_menu_user_kb
+from keyboards.reply import main_menu_kb_for
 from misc.states import DaySchedule
 from services.schedule.day_for_date import parse_dm_text
 
@@ -18,7 +18,9 @@ router = Router(name="user_state_handlers_day_schedule")
 @router.message(DaySchedule.waiting_date, F.text == BT.CANCEL)
 async def day_schedule_cancel(message: Message, state: FSMContext) -> None:
     await state.clear()
-    await message.answer("Отменено.", reply_markup=main_menu_user_kb)
+    await message.answer(
+        "Отменено.", reply_markup=await main_menu_kb_for(message.from_user.id)
+    )
 
 
 @router.message(DaySchedule.waiting_date, F.text)

@@ -7,7 +7,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from database.models import User
+from handlers.admin.tools import search_cache
 from handlers.admin.tools.queries import filtered_users_queryset
+from handlers.admin.tools.search import edit_to_search_results
 from handlers.admin.tools.texts import (
     BROADCAST_HINT,
     SEARCH_PROMPT,
@@ -20,6 +22,7 @@ from handlers.admin.tools.texts import (
 )
 from keyboards.admin import (
     PAGE_SIZE,
+    SEARCH_BACK_FLT,
     SORT_SEEN,
     admin_menu_kb,
     broadcast_hint_kb,
@@ -96,6 +99,29 @@ async def show_users_list(
     await state.set_state()
     flt = callback_data.flt
     sort = callback_data.sort
+
+    if flt == SEARCH_BACK_FLT:
+        query = search_cache.get(callback.from_user.id)
+        if query is None:
+            await callback.answer(
+                "Контекст поиска утерян, открой поиск заново.", show_alert=True
+            )
+            await callback.message.edit_text(
+                build_menu_text(), reply_markup=admin_menu_kb()
+            )
+            return
+        if not await edit_to_search_results(callback, query):
+            search_cache.clear(callback.from_user.id)
+            await callback.answer(
+                "По прошлому запросу больше ничего не найдено.", show_alert=True
+            )
+            await callback.message.edit_text(
+                build_menu_text(), reply_markup=admin_menu_kb()
+            )
+            return
+        await callback.answer()
+        return
+
     qs = filtered_users_queryset(flt)
     total = await qs.count()
     total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)

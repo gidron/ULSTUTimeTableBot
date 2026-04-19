@@ -6,7 +6,7 @@ from aiogram.utils.chat_action import ChatActionSender
 from database.models import User
 from keyboards.factories import PickSuggestedGroupCallback
 from keyboards.inline import group_suggestions_inline_kb
-from keyboards.reply import main_menu_user_kb, cancel_kb
+from keyboards.reply import main_menu_kb, main_menu_kb_for, cancel_kb
 from misc.states import SetGroupName
 from constants.buttons_text import ButtonText as BT
 from services.network import UniversityClient
@@ -31,7 +31,7 @@ async def _complete_group_setup(
     await state.update_data(suggested_groups=None)
     await message.answer(
         f"Группа <b>{group_name}</b> сохранена! В дальнейшем ты сможешь изменить ее в настройках.",
-        reply_markup=main_menu_user_kb,
+        reply_markup=main_menu_kb(is_admin=user.is_admin),
     )
     await state.set_state()
 
@@ -39,7 +39,9 @@ async def _complete_group_setup(
 @router.message(SetGroupName.group_name, F.text == BT.CANCEL)
 async def cancel_input(message: Message, state: FSMContext):
     await state.update_data(suggested_groups=None)
-    await message.answer("Отменено", reply_markup=main_menu_user_kb)
+    await message.answer(
+        "Отменено", reply_markup=await main_menu_kb_for(message.from_user.id)
+    )
     await state.set_state()
 
 

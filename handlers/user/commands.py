@@ -15,7 +15,7 @@ from handlers.user.tools.day_schedule import send_day_schedule_message
 from handlers.user.tools.profile_messages import build_profile_root_text
 from keyboards.builders import accept_new_user_kb
 from keyboards.inline import profile_root_inline_kb
-from keyboards.reply import main_menu_user_kb
+from keyboards.reply import main_menu_kb
 from constants.buttons_text import ButtonText as BT
 from misc.states import SetGroupName
 from misc.user_admin_card import format_user_admin_card_html
@@ -85,7 +85,8 @@ async def start(message: Message, state: FSMContext):
         await state.set_state(SetGroupName.group_name)
     elif user.is_active and user.group_name:
         await message.answer(
-            f"С возвращением, <b>{full_name}</b>!", reply_markup=main_menu_user_kb
+            f"С возвращением, <b>{full_name}</b>!",
+            reply_markup=main_menu_kb(is_admin=user.is_admin),
         )
 
 
@@ -133,7 +134,9 @@ async def show_week(message: Message, command: CommandObject | None = None):
 
             photo = BufferedInputFile(image_bytes, filename=filename)
             await message.answer_photo(
-                photo=photo, caption=caption, reply_markup=main_menu_user_kb
+                photo=photo,
+                caption=caption,
+                reply_markup=main_menu_kb(is_admin=user.is_admin),
             )
 
     await message_to_delete.delete()

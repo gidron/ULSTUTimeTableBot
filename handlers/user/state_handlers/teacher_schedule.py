@@ -8,7 +8,7 @@ from constants.schedule_layout import parse_schedule_layout
 from database.models import User
 from keyboards.factories import PickSuggestedTeacherCallback
 from keyboards.inline import teacher_suggestions_inline_kb
-from keyboards.reply import cancel_kb, main_menu_user_kb
+from keyboards.reply import cancel_kb, main_menu_kb
 from misc.states import TeacherSchedule
 from services.network.university_client import UniversityClient
 from services.schedule.service import ScheduleService
@@ -42,6 +42,7 @@ async def _complete_teacher_schedule(
     tg_id = user_tg_id if user_tg_id is not None else message.from_user.id
     user = await User.get(tg_id=tg_id)
     layout = parse_schedule_layout(user.schedule_layout)
+    menu_kb = main_menu_kb(is_admin=user.is_admin)
 
     service = ScheduleService(
         teacher_name,
@@ -76,7 +77,7 @@ async def _complete_teacher_schedule(
     if not loaded:
         await message.answer(
             "Не удалось загрузить расписание. Попробуй позже.",
-            reply_markup=main_menu_user_kb,
+            reply_markup=menu_kb,
         )
         return
 
@@ -95,14 +96,17 @@ async def _complete_teacher_schedule(
         await message.answer_photo(
             photo=photo,
             caption=caption,
-            reply_markup=main_menu_user_kb if is_last else None,
+            reply_markup=menu_kb if is_last else None,
         )
 
 
 @router.message(TeacherSchedule.teacher_query, F.text == BT.CANCEL)
 async def cancel_teacher_input(message: Message, state: FSMContext):
     await state.update_data(suggested_teachers=None)
-    await message.answer("Отменено", reply_markup=main_menu_user_kb)
+    user = await User.get(tg_id=message.from_user.id)
+    await message.answer(
+        "Отменено", reply_markup=main_menu_kb(is_admin=user.is_admin)
+    )
     await state.set_state()
 
 

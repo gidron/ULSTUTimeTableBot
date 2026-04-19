@@ -7,7 +7,7 @@ from aiogram.types import Message
 from aiogram.utils.chat_action import ChatActionSender
 
 from database.models import User
-from keyboards.reply import main_menu_user_kb
+from keyboards.reply import main_menu_kb
 from services.network.university_client import UniversityClient
 from services.schedule.day_for_date import (
     build_day_schedule_snapshot,
@@ -28,10 +28,11 @@ async def send_day_schedule_message(
     """Парсит «ДД.ММ», грузит API и шлёт HTML; сбрасывает ``state`` при переданном FSM."""
     tg_id = message.from_user.id
     user = await User.get(tg_id=tg_id)
+    menu_kb = main_menu_kb(is_admin=user.is_admin)
     if not user.group_name:
         await message.answer(
             "Сначала укажи учебную группу в профиле.",
-            reply_markup=main_menu_user_kb,
+            reply_markup=menu_kb,
         )
         if state:
             await state.clear()
@@ -51,7 +52,7 @@ async def send_day_schedule_message(
         today = schedule_today()
         target_date = resolve_semester_calendar_date(day, month, today)
     except ValueError as exc:
-        await message.answer(str(exc), reply_markup=main_menu_user_kb)
+        await message.answer(str(exc), reply_markup=menu_kb)
         if state:
             await state.clear()
         return
@@ -67,7 +68,7 @@ async def send_day_schedule_message(
             if api_week is None:
                 await message.answer(
                     "Не удалось определить текущую учебную неделю. Попробуй позже.",
-                    reply_markup=main_menu_user_kb,
+                    reply_markup=menu_kb,
                 )
             else:
                 try:
@@ -82,17 +83,17 @@ async def send_day_schedule_message(
                     await message.answer(
                         "Расписание на выбранный день пока недоступно.\n"
                         "Попробуй позже ещё раз.",
-                        reply_markup=main_menu_user_kb,
+                        reply_markup=menu_kb,
                     )
                 else:
                     if outcome == "sunday":
                         await message.answer(
                             "В расписании учитываются только дни с понедельника по субботу.",
-                            reply_markup=main_menu_user_kb,
+                            reply_markup=menu_kb,
                         )
                     else:
                         html_text = format_day_schedule_html(outcome)
-                        await message.answer(html_text, reply_markup=main_menu_user_kb)
+                        await message.answer(html_text, reply_markup=menu_kb)
     finally:
         await message_to_delete.delete()
 

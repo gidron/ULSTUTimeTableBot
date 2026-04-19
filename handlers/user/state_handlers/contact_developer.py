@@ -5,7 +5,7 @@ from aiogram.types import Message
 
 from core.config import get_settings
 from database.models import User
-from keyboards.reply import cancel_kb, main_menu_user_kb
+from keyboards.reply import cancel_kb, main_menu_kb, main_menu_kb_for
 from misc.states import ContactDeveloper
 from misc.user_admin_card import format_user_admin_card_html
 from constants.buttons_text import ButtonText as BT
@@ -26,7 +26,9 @@ async def prompt_contact_developer(message: Message, state: FSMContext) -> None:
 @router.message(ContactDeveloper.message, Command("cancel"))
 @router.message(ContactDeveloper.message, F.text == BT.CANCEL)
 async def cancel_contact(message: Message, state: FSMContext):
-    await message.answer("Отменено.", reply_markup=main_menu_user_kb)
+    await message.answer(
+        "Отменено.", reply_markup=await main_menu_kb_for(message.from_user.id)
+    )
     await state.set_state()
 
 
@@ -62,6 +64,6 @@ async def send_contact_to_developer(message: Message, state: FSMContext):
 
     await message.answer(
         "Сообщение отправлено разработчику. Спасибо!",
-        reply_markup=main_menu_user_kb,
+        reply_markup=main_menu_kb(is_admin=db_user.is_admin),
     )
     await state.set_state()

@@ -1,7 +1,7 @@
 from enum import StrEnum, unique
 
 
-@unique
+# @unique
 class ButtonText(StrEnum):
     CURRENT_WEEK = "Текущая неделя"
     NEXT_WEEK = "Следующая неделя"
@@ -28,8 +28,10 @@ class ButtonText(StrEnum):
     ADMIN_MENU_USERS = "👥 Пользователи"
     ADMIN_MENU_SEARCH = "🔍 Поиск"
     ADMIN_MENU_BROADCAST = "📣 Рассылка"
-    ADMIN_BACK_MENU = "◀ Меню"
+    ADMIN_BACK_MENU = "🏠 Меню"
     ADMIN_BACK_LIST = "◀ К списку"
+    # ADMIN_BACK_SEARCH = "🔍 К результатам поиска"
+    ADMIN_BACK_SEARCH = ADMIN_BACK_LIST
 
     ADMIN_FILTER_ALL = "Все"
     ADMIN_FILTER_ACTIVE = "Активные"

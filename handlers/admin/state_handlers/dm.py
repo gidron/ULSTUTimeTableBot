@@ -9,7 +9,7 @@ from aiogram.types import Message
 from constants.buttons_text import ButtonText as BT
 from handlers.admin.tools.texts import build_menu_text
 from keyboards.admin import admin_menu_kb
-from keyboards.reply import main_menu_user_kb
+from keyboards.reply import main_menu_kb
 from misc.admin_audit import log_admin_action
 from misc.filters import IsAdminUser
 from misc.states import AdminDM
@@ -20,7 +20,7 @@ router.message.filter(IsAdminUser())
 
 async def _exit_to_menu(message: Message, state: FSMContext, *, header: str) -> None:
     await state.set_state()
-    await message.answer(header, reply_markup=main_menu_user_kb)
+    await message.answer(header, reply_markup=main_menu_kb(is_admin=True))
     await message.answer(build_menu_text(), reply_markup=admin_menu_kb())
 
 

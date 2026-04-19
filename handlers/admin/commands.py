@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
+from constants.buttons_text import ButtonText as BT
 from database.models import User
 from handlers.admin.tools.texts import build_menu_text
 from keyboards.admin import admin_menu_kb
@@ -16,8 +17,9 @@ router = Router(name="admin_commands")
 
 
 @router.message(IsAdminUser(), Command("admin"))
+@router.message(IsAdminUser(), F.text == BT.ADMIN_PANEL_TITLE)
 async def admin_command(message: Message, state: FSMContext) -> None:
-    """Открыть инлайн-админку."""
+    """Открыть инлайн-админку (по команде или кнопке reply-меню)."""
     await state.set_state()
     await message.answer(build_menu_text(), reply_markup=admin_menu_kb())
 
