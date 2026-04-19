@@ -76,7 +76,13 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             set -euo pipefail
-            cd "${{ secrets.PROJECT_PATH }}"
-            git pull
+            DEPLOY_DIR="${{ secrets.PROJECT_PATH }}"
+            DEPLOY_DIR="$(printf '%s' "$DEPLOY_DIR" | tr -d '\r')"
+            if [ ! -d "$DEPLOY_DIR" ]; then
+              echo "Ошибка: каталог не существует на сервере. Проверьте секрет PROJECT_PATH (абсолютный путь) и что репозиторий уже склонирован туда."
+              exit 1
+            fi
+            cd "$DEPLOY_DIR"
+            git pull origin main
             docker compose build
             docker compose up -d
