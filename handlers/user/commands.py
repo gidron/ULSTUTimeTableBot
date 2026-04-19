@@ -20,29 +20,12 @@ from constants.buttons_text import ButtonText as BT
 from misc.states import SetGroupName
 from misc.user_admin_card import format_user_admin_card_html
 from services.schedule import ScheduleService
-from services.schedule.day_for_date import parse_dm_text
 from services.schedule.parser import TimetableParseError
 from services.schedule_changes.demo_changes import build_demo_notify_message
 
 router = Router(name="user_commands")
 
 DATE_DM_TEXT_RE = r"^\s*\d{1,2}\.\d{1,2}\s*$"
-
-
-@router.message(Command(CommandText.DAY))
-async def day_command(message: Message, command: CommandObject) -> None:
-    args = (command.args or "").strip()
-    if not args:
-        await message.answer(
-            "Укажи дату: <code>/day 15.02</code> или одним сообщением <code>15.02</code>."
-        )
-        return
-    if parse_dm_text(args) is None:
-        await message.answer(
-            "Формат даты: <code>ДД.ММ</code>, например <code>15.02</code>."
-        )
-        return
-    await send_day_schedule_message(message, args)
 
 
 @router.message(default_state, F.text.regexp(DATE_DM_TEXT_RE))

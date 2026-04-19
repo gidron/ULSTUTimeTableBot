@@ -37,3 +37,9 @@ class AdminActionCallback(CallbackData, prefix="adm_act"):
     back_flt: str
     back_page: int
     back_sort: str = "name"
+
+
+class DayScheduleNavCallback(CallbackData, prefix="ds_day"):
+    y: int
+    m: int
+    d: int

@@ -8,8 +8,13 @@ import pytest
 
 from services.schedule.day_for_date import (
     build_day_schedule_snapshot,
+    dates_two_iso_weeks_intersect_semester,
+    format_day_schedule_outcome_html,
+    format_sunday_off_html,
+    is_date_in_semester_window,
     parse_dm_text,
     resolve_semester_calendar_date,
+    two_iso_weeks_inclusive_range,
 )
 from services.schedule.parser import TimetableParseError
 
@@ -61,6 +66,53 @@ def test_resolve_semester_july_uses_fall_window() -> None:
 def test_resolve_semester_invalid_day() -> None:
     with pytest.raises(ValueError, match="Некорректная"):
         resolve_semester_calendar_date(31, 2, date(2026, 4, 10))
+
+
+def test_is_date_in_semester_window_spring() -> None:
+    today = date(2026, 4, 10)
+    assert is_date_in_semester_window(date(2026, 2, 1), today) is True
+    assert is_date_in_semester_window(date(2026, 6, 30), today) is True
+    assert is_date_in_semester_window(date(2026, 1, 31), today) is False
+    assert is_date_in_semester_window(date(2026, 7, 1), today) is False
+
+
+def test_is_date_in_semester_window_fall() -> None:
+    today = date(2026, 10, 15)
+    assert is_date_in_semester_window(date(2026, 9, 1), today) is True
+    assert is_date_in_semester_window(date(2026, 12, 31), today) is True
+    assert is_date_in_semester_window(date(2026, 8, 31), today) is False
+
+
+def test_two_iso_weeks_range() -> None:
+    anchor = date(2026, 4, 16)  # четверг
+    start, end = two_iso_weeks_inclusive_range(anchor)
+    assert start.weekday() == 0
+    assert start == date(2026, 4, 13)
+    assert end == date(2026, 4, 26)
+
+
+def test_dates_two_iso_weeks_intersect_semester() -> None:
+    ref = date(2026, 4, 16)
+    days = dates_two_iso_weeks_intersect_semester(ref, ref)
+    assert days[0] == date(2026, 4, 13)
+    assert days[-1] == date(2026, 4, 26)
+    assert len(days) == 14
+
+
+def test_format_sunday_off_html() -> None:
+    html = format_sunday_off_html("Гр-1", date(2026, 4, 12))
+    assert "Выходной" in html
+    assert "Вс" in html
+    assert "Гр-1" in html
+
+
+def test_format_day_schedule_outcome_html_sunday() -> None:
+    html = format_day_schedule_outcome_html(
+        "sunday",
+        group_name="Гр-1",
+        target_date=date(2026, 4, 12),
+    )
+    assert "Выходной" in html
 
 
 def _minimal_weeks_payload() -> dict:

@@ -61,6 +61,31 @@ def _semester_window_for_today(today: date) -> tuple[date, date]:
     return date(y, 9, 1), date(y, 12, 31)
 
 
+def is_date_in_semester_window(candidate: date, today: date) -> bool:
+    """Попадает ли календарная дата в учебный период, соответствующий ``today``."""
+    window_start, window_end = _semester_window_for_today(today)
+    return window_start <= candidate <= window_end
+
+
+def two_iso_weeks_inclusive_range(anchor: date) -> tuple[date, date]:
+    """Понедельник недели ``anchor`` и воскресенье через две недели (14 дней)."""
+    monday = anchor - timedelta(days=anchor.weekday())
+    end = monday + timedelta(days=13)
+    return monday, end
+
+
+def dates_two_iso_weeks_intersect_semester(anchor: date, ref_today: date) -> list[date]:
+    """Все календарные дни двух ISO-недель вокруг ``anchor``, ограниченные семестром."""
+    start, end = two_iso_weeks_inclusive_range(anchor)
+    out: list[date] = []
+    d = start
+    while d <= end:
+        if is_date_in_semester_window(d, ref_today):
+            out.append(d)
+        d += timedelta(days=1)
+    return out
+
+
 def resolve_semester_calendar_date(day: int, month: int, today: date) -> date:
     """Дата в календаре ``today.year`` в пределах семестра, который соответствует ``today``.
 
@@ -161,6 +186,29 @@ def _escape_slot_body(text: str) -> str:
     return html.escape(text)
 
 
+def format_sunday_off_html(group_name: str, target_date: date) -> str:
+    """Тот же каркас, что у расписания на день, но день — вс, тело «Выходной»."""
+    full_date = target_date.strftime("%d.%m.%Y")
+    gn = html.escape(group_name)
+    return "\n".join(
+        [
+            "📅 <b>Расписание на день</b>",
+            "",
+            "<i>Ориентировочно: на сайте вуза доступны две учебные недели; бот "
+            "продолжает этот шаблон по кругу (чередование «текущая / следующая» неделя). "
+            "Это не официальный документ — возможны замены, переносы и изменения. "
+            "Сверяйся с актуальным расписанием на сайте.</i>",
+            "",
+            f"📚 Группа: <b>{gn}</b>",
+            f"🗓 Вс · {full_date}",
+            "",
+            "· · ·",
+            "",
+            "Выходной.",
+        ]
+    )
+
+
 def format_day_schedule_html(snapshot: DayScheduleSnapshot) -> str:
     """HTML-сообщение: шапка, дисклеймер, затем пары."""
     wd_label = (
@@ -192,3 +240,15 @@ def format_day_schedule_html(snapshot: DayScheduleSnapshot) -> str:
         lines.append(_escape_slot_body(slot))
         lines.append("")
     return "\n".join(lines).rstrip()
+
+
+def format_day_schedule_outcome_html(
+    outcome: DayScheduleSnapshot | Literal["sunday"],
+    *,
+    group_name: str,
+    target_date: date,
+) -> str:
+    """HTML для снимка дня или воскресенья."""
+    if outcome == "sunday":
+        return format_sunday_off_html(group_name, target_date)
+    return format_day_schedule_html(outcome)

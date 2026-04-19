@@ -10,6 +10,7 @@ from keyboards.reply import main_menu_kb, main_menu_kb_for, cancel_kb
 from misc.states import SetGroupName
 from constants.buttons_text import ButtonText as BT
 from services.network import UniversityClient
+from services.schedule.day_schedule_session_cache import invalidate_day_schedule_session
 
 
 router = Router(name="user_state_handlers_register_user_form")
@@ -26,6 +27,8 @@ async def _complete_group_setup(
     message: Message, tg_id: int, group_name: str, state: FSMContext
 ) -> None:
     user = await User.get(tg_id=tg_id)
+    if user.group_name:
+        invalidate_day_schedule_session(tg_id, user.group_name)
     user.group_name = group_name
     await user.save()
     await state.update_data(suggested_groups=None)

@@ -1,9 +1,16 @@
+from datetime import date, timedelta
+
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from constants.buttons_text import ButtonText as BT
 from constants.callbacks import CallbackConstants
 from constants.schedule_layout import ScheduleLayout
-from keyboards.factories import PickSuggestedGroupCallback, PickSuggestedTeacherCallback
+from keyboards.factories import (
+    DayScheduleNavCallback,
+    PickSuggestedGroupCallback,
+    PickSuggestedTeacherCallback,
+)
+from services.schedule.day_for_date import is_date_in_semester_window
 
 
 def _schedule_layout_profile_label(layout: ScheduleLayout) -> str:
@@ -124,6 +131,34 @@ def teacher_suggestions_inline_kb(teachers: list[str]) -> InlineKeyboardMarkup:
             ]
         )
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def day_schedule_nav_kb(target_date: date, *, ref_today: date) -> InlineKeyboardMarkup:
+    """Навигация ±1 день в границах семестра; подписи «◀ ДД.ММ» / «ДД.ММ ▶»."""
+    row: list[InlineKeyboardButton] = []
+    prev_d = target_date - timedelta(days=1)
+    if is_date_in_semester_window(prev_d, ref_today):
+        dm = prev_d.strftime("%d.%m")
+        row.append(
+            InlineKeyboardButton(
+                text=f"◀ {dm}",
+                callback_data=DayScheduleNavCallback(
+                    y=prev_d.year, m=prev_d.month, d=prev_d.day
+                ).pack(),
+            )
+        )
+    next_d = target_date + timedelta(days=1)
+    if is_date_in_semester_window(next_d, ref_today):
+        dm = next_d.strftime("%d.%m")
+        row.append(
+            InlineKeyboardButton(
+                text=f"{dm} ▶",
+                callback_data=DayScheduleNavCallback(
+                    y=next_d.year, m=next_d.month, d=next_d.day
+                ).pack(),
+            )
+        )
+    return InlineKeyboardMarkup(inline_keyboard=[row] if row else [])
 
 
 def group_suggestions_inline_kb(groups: list[str]) -> InlineKeyboardMarkup:

@@ -1,22 +1,50 @@
-"""Отправка расписания на конкретный день (парсинг ДД.ММ, API, HTML). Без роутера."""
+"""Отправка расписания на конкретный день (парсинг ДД.ММ, API, HTML, кеш, навигация)."""
 
 from __future__ import annotations
+
+from datetime import date
+from typing import Literal
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from aiogram.utils.chat_action import ChatActionSender
 
 from database.models import User
+from keyboards.inline import day_schedule_nav_kb
 from keyboards.reply import main_menu_kb
 from services.network.university_client import UniversityClient
 from services.schedule.day_for_date import (
+    DayScheduleSnapshot,
     build_day_schedule_snapshot,
-    format_day_schedule_html,
+    format_day_schedule_outcome_html,
     parse_dm_text,
     resolve_semester_calendar_date,
     schedule_today,
 )
+from services.schedule.day_schedule_session_cache import (
+    DayScheduleSession,
+    get_day_schedule_session,
+    save_day_schedule_session,
+)
 from services.schedule.parser import TimetableParseError
+
+
+def resolve_day_schedule_outcome(
+    session: DayScheduleSession,
+    target_date: date,
+) -> DayScheduleSnapshot | Literal["sunday"] | None:
+    if target_date in session.precomputed:
+        return session.precomputed[target_date]
+    try:
+        return build_day_schedule_snapshot(
+            target_date,
+            api_current_week=session.api_current_week,
+            payload=session.payload,
+            group_name=session.group_name,
+            today=session.frozen_today,
+        )
+    except TimetableParseError:
+        return None
 
 
 async def send_day_schedule_message(
@@ -57,45 +85,44 @@ async def send_day_schedule_message(
             await state.clear()
         return
 
-    message_to_delete = await message.answer("⏳ Расписание генерируется...")
-    try:
-        async with ChatActionSender(
-            bot=message.bot, chat_id=message.chat.id, initial_sleep=0.5
-        ):
-            async with UniversityClient(group_name=user.group_name) as client:
-                api_week, payload = await client.get_current_week_and_timetable()
+    await message.answer("⏳ Расписание генерируется...", reply_markup=menu_kb)
+    async with ChatActionSender(
+        bot=message.bot, chat_id=message.chat.id, initial_sleep=0.5
+    ):
+        async with UniversityClient(group_name=user.group_name) as client:
+            api_week, payload = await client.get_current_week_and_timetable()
 
-            if api_week is None:
+        if api_week is None:
+            await message.answer(
+                "Не удалось определить текущую учебную неделю. Попробуй позже.",
+                reply_markup=menu_kb,
+            )
+        else:
+            session = save_day_schedule_session(
+                tg_id,
+                user.group_name,
+                api_current_week=api_week,
+                payload=payload,
+                frozen_today=today,
+                anchor_date=target_date,
+            )
+            outcome = resolve_day_schedule_outcome(session, target_date)
+            if outcome is None:
                 await message.answer(
-                    "Не удалось определить текущую учебную неделю. Попробуй позже.",
+                    "Расписание на выбранный день пока недоступно.\n"
+                    "Попробуй позже ещё раз.",
                     reply_markup=menu_kb,
                 )
             else:
-                try:
-                    outcome = build_day_schedule_snapshot(
-                        target_date,
-                        api_current_week=api_week,
-                        payload=payload,
-                        group_name=user.group_name,
-                        today=today,
-                    )
-                except TimetableParseError:
-                    await message.answer(
-                        "Расписание на выбранный день пока недоступно.\n"
-                        "Попробуй позже ещё раз.",
-                        reply_markup=menu_kb,
-                    )
-                else:
-                    if outcome == "sunday":
-                        await message.answer(
-                            "В расписании учитываются только дни с понедельника по субботу.",
-                            reply_markup=menu_kb,
-                        )
-                    else:
-                        html_text = format_day_schedule_html(outcome)
-                        await message.answer(html_text, reply_markup=menu_kb)
-    finally:
-        await message_to_delete.delete()
+                html_text = format_day_schedule_outcome_html(
+                    outcome,
+                    group_name=user.group_name,
+                    target_date=target_date,
+                )
+                nav = day_schedule_nav_kb(
+                    target_date, ref_today=session.frozen_today
+                )
+                await message.answer(html_text, reply_markup=nav)
 
     if state:
         await state.clear()

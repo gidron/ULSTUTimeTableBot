@@ -1,3 +1,5 @@
+from datetime import date
+
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
@@ -10,6 +12,7 @@ from handlers.user.state_handlers.set_group_name import SET_GROUP_PROMPT
 from handlers.user.state_handlers.teacher_schedule import (
     prompt_teacher_schedule,
 )
+from handlers.user.tools.day_schedule import resolve_day_schedule_outcome
 from handlers.user.tools.profile_messages import (
     build_profile_group_page_text,
     build_profile_info_page_text,
@@ -17,17 +20,84 @@ from handlers.user.tools.profile_messages import (
     build_profile_settings_page_text,
 )
 from keyboards.inline import (
+    day_schedule_nav_kb,
     profile_group_schedule_inline_kb,
     profile_info_inline_kb,
     profile_root_inline_kb,
     profile_settings_inline_kb,
 )
-from keyboards.factories import AcceptNewUserCallback
+from keyboards.factories import AcceptNewUserCallback, DayScheduleNavCallback
+from services.network.university_client import UniversityClient
+from services.schedule.day_for_date import (
+    format_day_schedule_outcome_html,
+    is_date_in_semester_window,
+    schedule_today,
+)
+from services.schedule.day_schedule_session_cache import (
+    get_day_schedule_session,
+    save_day_schedule_session,
+)
 from keyboards.reply import cancel_kb
 from handlers.user.state_handlers.contact_developer import prompt_contact_developer
 from misc.states import DaySchedule, SetGroupName, TeacherSchedule
 
 router = Router(name="user_callbacks")
+
+
+@router.callback_query(default_state, DayScheduleNavCallback.filter())
+async def day_schedule_pagination(
+    callback: CallbackQuery, callback_data: DayScheduleNavCallback
+) -> None:
+    target_date = date(callback_data.y, callback_data.m, callback_data.d)
+    ref_for_window = schedule_today()
+    if not is_date_in_semester_window(target_date, ref_for_window):
+        await callback.answer("Дата вне текущего семестра.", show_alert=True)
+        return
+
+    user = await User.get(tg_id=callback.from_user.id)
+    if not user.group_name:
+        await callback.answer("Сначала укажи группу в профиле.", show_alert=True)
+        return
+
+    await callback.answer()
+
+    session = get_day_schedule_session(callback.from_user.id, user.group_name)
+    if session is None:
+        async with UniversityClient(group_name=user.group_name) as client:
+            api_week, payload = await client.get_current_week_and_timetable()
+        if api_week is None:
+            await callback.message.edit_text(
+                "Не удалось определить текущую учебную неделю. Попробуй позже."
+            )
+            return
+        frozen = schedule_today()
+        session = save_day_schedule_session(
+            callback.from_user.id,
+            user.group_name,
+            api_current_week=api_week,
+            payload=payload,
+            frozen_today=frozen,
+            anchor_date=target_date,
+        )
+
+    outcome = resolve_day_schedule_outcome(session, target_date)
+    if outcome is None:
+        await callback.message.edit_text(
+            "Расписание на выбранный день пока недоступно.\n"
+            "Попробуй позже ещё раз.",
+            reply_markup=day_schedule_nav_kb(
+                target_date, ref_today=session.frozen_today
+            ),
+        )
+        return
+
+    html_text = format_day_schedule_outcome_html(
+        outcome,
+        group_name=user.group_name,
+        target_date=target_date,
+    )
+    nav = day_schedule_nav_kb(target_date, ref_today=session.frozen_today)
+    await callback.message.edit_text(html_text, reply_markup=nav)
 
 
 @router.callback_query(default_state, F.data == CallbackConstants.PROFILE_ROOT)
