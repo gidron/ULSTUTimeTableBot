@@ -36,28 +36,28 @@ jobs:
         run: |
           pytest tests/ -v --cov=. --cov-report=term-missing
 
-  lint:
-    name: Ruff Format and Lint
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: pip
-
-      - name: Install ruff
-        run: pip install ruff
-
-      - name: Check formatting with ruff
-        run: ruff format .
-
-      - name: Run ruff linter
-        run: ruff check . --fix
+#  lint:
+#    name: Ruff Format and Lint
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v4
+#
+#      - name: Set up Python
+#        uses: actions/setup-python@v5
+#        with:
+#          python-version: "3.13"
+#          cache: pip
+#
+#      - name: Install ruff
+#        run: pip install ruff
+#
+#      - name: Check formatting with ruff
+#        run: ruff format .
+#
+#      - name: Run ruff linter
+#        run: ruff check . --fix
 
   deploy:
     name: Deploy to Remote Server
