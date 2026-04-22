@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup
 
 from database.models import User
 from handlers.admin.tools import search_cache
@@ -29,7 +29,6 @@ from keyboards.admin import (
     delete_confirm_kb,
     dm_cancel_kb,
     post_delete_nav_kb,
-    search_prompt_kb,
     stats_kb,
     user_card_kb,
     users_list_kb,
@@ -43,6 +42,7 @@ from keyboards.factories import (
 from keyboards.reply import cancel_kb
 from misc.admin_audit import log_admin_action
 from misc.filters import IsAdminUser
+from misc.protected_admins import can_admin_ban_or_delete_target
 from misc.states import AdminDM, AdminSearch
 
 router = Router(name="admin_callbacks")
@@ -70,7 +70,9 @@ async def menu_stats(callback: CallbackQuery, state: FSMContext) -> None:
 async def menu_search(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.set_state(AdminSearch.query)
-    await callback.message.edit_text(SEARCH_PROMPT, reply_markup=search_prompt_kb())
+    await callback.message.edit_text(
+        SEARCH_PROMPT, reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
+    )
     await callback.message.answer("Жду поисковый запрос…", reply_markup=cancel_kb)
 
 
@@ -213,6 +215,13 @@ async def action_ban(
     if _is_self(callback, user):
         await callback.answer("Нельзя забанить самого себя", show_alert=True)
         return
+    if not can_admin_ban_or_delete_target(
+        actor_tg_id=callback.from_user.id, target_tg_id=user.tg_id
+    ):
+        await callback.answer(
+            "Нельзя банить владельца бота", show_alert=True
+        )
+        return
 
     user.is_active = not user.is_active
     await user.save()
@@ -271,6 +280,13 @@ async def action_delete_prompt(
     if _is_self(callback, user):
         await callback.answer("Нельзя удалить самого себя", show_alert=True)
         return
+    if not can_admin_ban_or_delete_target(
+        actor_tg_id=callback.from_user.id, target_tg_id=user.tg_id
+    ):
+        await callback.answer(
+            "Нельзя удалить владельца бота", show_alert=True
+        )
+        return
     await callback.answer()
     await callback.message.edit_text(
         build_delete_confirm_text(user),
@@ -292,6 +308,13 @@ async def action_delete_confirm(
         return
     if _is_self(callback, user):
         await callback.answer("Нельзя удалить самого себя", show_alert=True)
+        return
+    if not can_admin_ban_or_delete_target(
+        actor_tg_id=callback.from_user.id, target_tg_id=user.tg_id
+    ):
+        await callback.answer(
+            "Нельзя удалить владельца бота", show_alert=True
+        )
         return
 
     target_id = int(user.tg_id)

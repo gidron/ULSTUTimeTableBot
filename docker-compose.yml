@@ -13,14 +13,20 @@ services:
 #      - ./logs:/app/logs
 #    restart: unless-stopped
 
+  # Порт на хосте 6378 -> внутри контейнера 6379. Локальный бот: REDIS_HOST=127.0.0.1 REDIS_PORT=6378.
+  # Сервис bot в сети compose: REDIS_HOST=redis REDIS_PORT=6379 (без публикации порта на хост).
+  # При VPN (Amnezia и др.): если ломается loopback к опубликованному порту, проверьте split tunnel
+  # и конфликт iptables с Docker; см. также REDIS_* в .env.
   redis:
     image: redis:7
+    container_name: redis
     ports:
       - "6378:6379"
     restart: unless-stopped
 
   postgres:
     image: postgres:17
+    container_name: postgres
     env_file:
       - .env
     environment:

@@ -4,6 +4,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from constants.buttons_text import ButtonText as BT
 from database.models import User
+from misc.protected_admins import can_admin_ban_or_delete_target
 from keyboards.factories import (
     AdminActionCallback,
     AdminListCallback,
@@ -95,10 +96,6 @@ def admin_back_to_menu_row() -> list[InlineKeyboardButton]:
 
 
 def stats_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[admin_back_to_menu_row()])
-
-
-def search_prompt_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[admin_back_to_menu_row()])
 
 
@@ -253,6 +250,9 @@ def user_card_kb(
     back_sort: str = SORT_NAME,
 ) -> InlineKeyboardMarkup:
     is_self = int(user.tg_id) == int(actor_tg_id)
+    may_ban_or_delete = can_admin_ban_or_delete_target(
+        actor_tg_id=actor_tg_id, target_tg_id=user.tg_id
+    )
     rows: list[list[InlineKeyboardButton]] = []
 
     ban_label = BT.ADMIN_ACT_UNBAN if not user.is_active else BT.ADMIN_ACT_BAN
@@ -270,7 +270,7 @@ def user_card_kb(
         ).pack()
 
     toggle_row: list[InlineKeyboardButton] = []
-    if not is_self:
+    if not is_self and may_ban_or_delete:
         toggle_row.append(
             InlineKeyboardButton(text=ban_label, callback_data=_action("ban"))
         )
@@ -285,7 +285,7 @@ def user_card_kb(
         [InlineKeyboardButton(text=BT.ADMIN_ACT_DM, callback_data=_action("dm"))]
     )
 
-    if not is_self:
+    if not is_self and may_ban_or_delete:
         rows.append(
             [
                 InlineKeyboardButton(
