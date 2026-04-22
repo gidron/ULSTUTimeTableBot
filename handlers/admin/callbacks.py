@@ -29,7 +29,6 @@ from keyboards.admin import (
     delete_confirm_kb,
     dm_cancel_kb,
     post_delete_nav_kb,
-    search_prompt_kb,
     stats_kb,
     user_card_kb,
     users_list_kb,
@@ -74,7 +73,7 @@ async def menu_stats(callback: CallbackQuery, state: FSMContext) -> None:
 async def menu_search(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.set_state(AdminSearch.query)
-    await callback.message.edit_text(SEARCH_PROMPT, reply_markup=search_prompt_kb())
+    await callback.message.edit_text(SEARCH_PROMPT, reply_markup=None)
     await callback.message.answer("Жду поисковый запрос…", reply_markup=cancel_kb)
 
 

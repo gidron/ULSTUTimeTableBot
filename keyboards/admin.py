@@ -102,10 +102,6 @@ def stats_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[admin_back_to_menu_row()])
 
 
-def search_prompt_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[admin_back_to_menu_row()])
-
-
 def broadcast_hint_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[admin_back_to_menu_row()])
 
