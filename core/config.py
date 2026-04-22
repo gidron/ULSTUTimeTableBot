@@ -58,6 +58,7 @@ class Settings(BaseSettings):
 
     bot_link_text: str
 
+    # Сообщения пользователей уходят сюда; этот же tg_id защищён от бана/удаления другими админами.
     developer_chat_id: int = 511952153
 
     request_timeout: float = 20.0

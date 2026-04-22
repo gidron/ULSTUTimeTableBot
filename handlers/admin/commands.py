@@ -12,6 +12,7 @@ from handlers.admin.tools.texts import build_menu_text
 from keyboards.admin import admin_menu_kb
 from misc.admin_audit import log_admin_action
 from misc.filters import IsAdminUser
+from misc.protected_admins import can_admin_ban_or_delete_target
 
 router = Router(name="admin_commands")
 
@@ -71,6 +72,11 @@ async def _toggle_active(message: Message, command: CommandObject, target: bool)
     if user is None:
         await message.answer("Такой tg_id не найден!")
         return
+    if not target and not can_admin_ban_or_delete_target(
+        actor_tg_id=message.from_user.id, target_tg_id=user.tg_id
+    ):
+        await message.answer("Нельзя банить владельца бота.")
+        return
     user.is_active = target
     await user.save()
     log_admin_action(
@@ -98,6 +104,11 @@ async def remove_user(message: Message, command: CommandObject) -> None:
     user = await User.get_or_none(tg_id=tg_id)
     if user is None:
         await message.answer("Такой tg_id не найден!")
+        return
+    if not can_admin_ban_or_delete_target(
+        actor_tg_id=message.from_user.id, target_tg_id=user.tg_id
+    ):
+        await message.answer("Нельзя удалить владельца бота.")
         return
     target_id = int(user.tg_id)
     await user.delete()
