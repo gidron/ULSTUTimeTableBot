@@ -22,7 +22,7 @@ class LastUserActivityMiddleware(BaseMiddleware):
         tg_id = event.from_user.id
         today = date.today()
 
-        if not await User.get_or_none(tg_id=tg_id):
+        if not await User.get_or_none(tg_id=str(tg_id)):
             return await handler(event, data)
 
         cached_day = self.cache.get(tg_id)
@@ -30,7 +30,7 @@ class LastUserActivityMiddleware(BaseMiddleware):
             username = event.from_user.username
             full_name = event.from_user.full_name
 
-            user = await User.get(tg_id=tg_id)
+            user = await User.get(tg_id=str(tg_id))
             user.last_day_online = today
             user.username = username
             user.name = full_name

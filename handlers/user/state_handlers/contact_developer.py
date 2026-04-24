@@ -42,7 +42,7 @@ async def contact_ignore_commands(message: Message):
 @router.message(ContactDeveloper.message)
 async def send_contact_to_developer(message: Message, state: FSMContext):
     settings = get_settings()
-    db_user = await User.get(tg_id=message.from_user.id)
+    db_user = await User.get(tg_id=str(message.from_user.id))
     fu = message.from_user
 
     header = format_user_admin_card_html(

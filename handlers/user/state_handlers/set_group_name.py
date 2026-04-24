@@ -26,7 +26,7 @@ async def prompt_set_group(message: Message, state: FSMContext) -> None:
 async def _complete_group_setup(
     message: Message, tg_id: int, group_name: str, state: FSMContext
 ) -> None:
-    user = await User.get(tg_id=tg_id)
+    user = await User.get(tg_id=str(tg_id))
     if user.group_name:
         invalidate_day_schedule_session(tg_id, user.group_name)
     user.group_name = group_name

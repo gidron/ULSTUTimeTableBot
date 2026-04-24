@@ -37,14 +37,18 @@ async def day_free_text_dm(message: Message) -> None:
 async def start(message: Message, state: FSMContext):
     user = message.from_user
     tg_id = user.id
+    tg_id_key = str(tg_id)
     full_name = user.full_name
     username = user.username
 
-    user = await User.get_or_none(tg_id=tg_id)
+    user = await User.get_or_none(tg_id=tg_id_key)
 
     if user is None:
         user = await User.create(
-            tg_id=tg_id, name=full_name, username=username, is_active=False
+            tg_id=tg_id_key,
+            name=full_name,
+            username=username,
+            is_active=False,
         )
         settings = get_settings()
         await message.bot.send_message(
@@ -57,6 +61,10 @@ async def start(message: Message, state: FSMContext):
             ),
             reply_markup=accept_new_user_kb(tg_id),
         )
+    else:
+        user.name = full_name
+        user.username = username
+        await user.save()
 
     if user.is_active and not user.group_name:
         await message.answer(
@@ -79,7 +87,7 @@ async def start(message: Message, state: FSMContext):
 async def show_week(message: Message, command: CommandObject | None = None):
     tg_id = message.from_user.id
     cmd = command.command if command else None
-    user = await User.get(tg_id=tg_id)
+    user = await User.get(tg_id=str(tg_id))
 
     layout = parse_schedule_layout(user.schedule_layout)
     service = ScheduleService(user.group_name)
@@ -128,7 +136,7 @@ async def show_week(message: Message, command: CommandObject | None = None):
 @router.message(F.text == BT.PROFILE)
 @router.message(Command(CommandText.PROFILE))
 async def profile(message: Message):
-    user = await User.get(tg_id=message.from_user.id)
+    user = await User.get(tg_id=str(message.from_user.id))
     await message.answer(
         build_profile_root_text(user),
         reply_markup=profile_root_inline_kb(),
@@ -148,7 +156,7 @@ async def get_id(message: Message):
 @router.message(Command("preview_notify"))
 async def preview_notify(message: Message):
     """Случайные «старый/новый» слепки → тот же текст, что у реального уведомления."""
-    user = await User.get_or_none(tg_id=message.from_user.id)
+    user = await User.get_or_none(tg_id=str(message.from_user.id))
     if user is None or not user.is_admin:
         await message.answer("Команда доступна только администратору.")
         return

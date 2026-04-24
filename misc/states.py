@@ -21,5 +21,9 @@ class AdminSearch(StatesGroup):
     query = State()
 
 
+class AdminAddUser(StatesGroup):
+    identifier = State()
+
+
 class AdminDM(StatesGroup):
     message = State()

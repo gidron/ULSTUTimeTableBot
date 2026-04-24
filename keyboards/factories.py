@@ -15,7 +15,7 @@ class PickSuggestedTeacherCallback(CallbackData, prefix="pick_stchr"):
 
 
 class AdminMenuCallback(CallbackData, prefix="adm_menu"):
-    page: str  # root | stats | list | search | bcast
+    page: str  # root | stats | list | search | add_user | bcast
 
 
 class AdminListCallback(CallbackData, prefix="adm_list"):

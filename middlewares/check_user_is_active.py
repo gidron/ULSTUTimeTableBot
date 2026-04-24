@@ -14,7 +14,7 @@ class CheckUserIsActiveMiddleware(BaseMiddleware):
     ) -> Any:
 
         tg_id = event.from_user.id
-        user = await User.get_or_none(tg_id=tg_id)
+        user = await User.get_or_none(tg_id=str(tg_id))
 
         allowed_commands = ["/start", "/id"]
 

@@ -40,7 +40,7 @@ async def _complete_teacher_schedule(
     await state.set_state()
 
     tg_id = user_tg_id if user_tg_id is not None else message.from_user.id
-    user = await User.get(tg_id=tg_id)
+    user = await User.get(tg_id=str(tg_id))
     layout = parse_schedule_layout(user.schedule_layout)
     menu_kb = main_menu_kb(is_admin=user.is_admin)
 
@@ -103,7 +103,7 @@ async def _complete_teacher_schedule(
 @router.message(TeacherSchedule.teacher_query, F.text == BT.CANCEL)
 async def cancel_teacher_input(message: Message, state: FSMContext):
     await state.update_data(suggested_teachers=None)
-    user = await User.get(tg_id=message.from_user.id)
+    user = await User.get(tg_id=str(message.from_user.id))
     await message.answer(
         "Отменено", reply_markup=main_menu_kb(is_admin=user.is_admin)
     )

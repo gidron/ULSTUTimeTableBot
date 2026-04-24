@@ -81,6 +81,12 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    text=BT.ADMIN_MENU_ADD_USER,
+                    callback_data=AdminMenuCallback(page="add_user").pack(),
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text=BT.ADMIN_MENU_BROADCAST,
                     callback_data=AdminMenuCallback(page="bcast").pack(),
                 )

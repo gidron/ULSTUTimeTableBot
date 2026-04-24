@@ -55,7 +55,7 @@ async def send_day_schedule_message(
 ) -> None:
     """Парсит «ДД.ММ», грузит API и шлёт HTML; сбрасывает ``state`` при переданном FSM."""
     tg_id = message.from_user.id
-    user = await User.get(tg_id=tg_id)
+    user = await User.get(tg_id=str(tg_id))
     menu_kb = main_menu_kb(is_admin=user.is_admin)
     if not user.group_name:
         await message.answer(

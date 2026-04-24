@@ -27,6 +27,7 @@ class ButtonText(StrEnum):
     ADMIN_MENU_STATS = "📊 Статистика"
     ADMIN_MENU_USERS = "👥 Пользователи"
     ADMIN_MENU_SEARCH = "🔍 Поиск"
+    ADMIN_MENU_ADD_USER = "➕ Добавить пользователя"
     ADMIN_MENU_BROADCAST = "📣 Рассылка"
     ADMIN_BACK_MENU = "🏠 Меню"
     ADMIN_BACK_LIST = "◀ К списку"

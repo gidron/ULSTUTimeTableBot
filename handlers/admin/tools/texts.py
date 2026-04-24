@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date
+from datetime import date, datetime
 
 from constants.buttons_text import ButtonText as BT
 from constants.schedule_layout import parse_schedule_layout
@@ -13,6 +13,13 @@ from keyboards.admin import FILTER_LABELS, SORT_LABELS
 SEARCH_PROMPT = (
     "<b>🔍 Поиск пользователя</b>\n\n"
     "Отправь часть <b>username</b>, <b>tg_id</b>, <b>имени</b> или <b>группы</b>."
+)
+
+ADD_USER_PROMPT = (
+    "<b>➕ Добавить пользователя</b>\n\n"
+    "Отправь только <b>числовой Telegram ID</b> (цифры, без пробелов). Запись "
+    "сразу <b>активна</b>; при первом <code>/start</code> одобрение не нужно — "
+    "бот попросит группу. До <code>/start</code> в ЛС написать нельзя."
 )
 
 BROADCAST_HINT = (
@@ -29,6 +36,7 @@ def build_menu_text() -> str:
         f"• {BT.ADMIN_MENU_STATS} — общая сводка\n"
         f"• {BT.ADMIN_MENU_USERS} — список и фильтры\n"
         f"• {BT.ADMIN_MENU_SEARCH} — поиск по username/tg_id/группе/имени\n"
+        f"• {BT.ADMIN_MENU_ADD_USER} — whitelist по числовому tg_id до /start\n"
         f"• {BT.ADMIN_MENU_BROADCAST} — массовая рассылка"
     )
 
@@ -84,13 +92,14 @@ def _bool_label(value: bool) -> str:
     return "✅" if value else "❌"
 
 
-def _format_last_seen(value: date | None) -> str:
+def _format_last_seen(value: date | datetime | None) -> str:
     """ДД.ММ.ГГГГ + относительное «N дн./нед./мес. назад»."""
     if value is None:
         return "никогда"
+    d = value.date() if isinstance(value, datetime) else value
     today = date.today()
-    delta_days = (today - value).days
-    iso = f"{value.day:02d}.{value.month:02d}.{value.year}"
+    delta_days = (today - d).days
+    iso = f"{d.day:02d}.{d.month:02d}.{d.year}"
     if delta_days < 0:
         relative = "в будущем"
     elif delta_days == 0:

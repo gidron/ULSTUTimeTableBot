@@ -11,6 +11,7 @@ from handlers.admin.tools import search_cache
 from handlers.admin.tools.queries import filtered_users_queryset
 from handlers.admin.tools.search import edit_to_search_results
 from handlers.admin.tools.texts import (
+    ADD_USER_PROMPT,
     BROADCAST_HINT,
     SEARCH_PROMPT,
     build_delete_confirm_text,
@@ -46,7 +47,7 @@ from misc.protected_admins import (
     can_admin_ban_or_delete_target,
     can_admin_revoke_admin_from_target,
 )
-from misc.states import AdminDM, AdminSearch
+from misc.states import AdminAddUser, AdminDM, AdminSearch
 
 router = Router(name="admin_callbacks")
 router.callback_query.filter(IsAdminUser())
@@ -75,6 +76,14 @@ async def menu_search(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminSearch.query)
     await callback.message.edit_text(SEARCH_PROMPT, reply_markup=None)
     await callback.message.answer("Жду поисковый запрос…", reply_markup=cancel_kb)
+
+
+@router.callback_query(AdminMenuCallback.filter(F.page == "add_user"))
+async def menu_add_user(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    await state.set_state(AdminAddUser.identifier)
+    await callback.message.edit_text(ADD_USER_PROMPT, reply_markup=None)
+    await callback.message.answer("Жду числовой tg_id…", reply_markup=cancel_kb)
 
 
 @router.callback_query(AdminMenuCallback.filter(F.page == "bcast"))

@@ -27,6 +27,7 @@ from keyboards.inline import (
     profile_settings_inline_kb,
 )
 from keyboards.factories import AcceptNewUserCallback, DayScheduleNavCallback
+from misc.user_welcome import notify_user_added
 from services.network.university_client import UniversityClient
 from services.schedule.day_for_date import (
     format_day_schedule_outcome_html,
@@ -54,7 +55,7 @@ async def day_schedule_pagination(
         await callback.answer("Дата вне текущего семестра.", show_alert=True)
         return
 
-    user = await User.get(tg_id=callback.from_user.id)
+    user = await User.get(tg_id=str(callback.from_user.id))
     if not user.group_name:
         await callback.answer("Сначала укажи группу в профиле.", show_alert=True)
         return
@@ -103,7 +104,7 @@ async def day_schedule_pagination(
 @router.callback_query(default_state, F.data == CallbackConstants.PROFILE_ROOT)
 async def profile_open_root(callback: CallbackQuery):
     await callback.answer()
-    user = await User.get(tg_id=callback.from_user.id)
+    user = await User.get(tg_id=str(callback.from_user.id))
     await callback.message.edit_text(
         build_profile_root_text(user),
         reply_markup=profile_root_inline_kb(),
@@ -113,7 +114,7 @@ async def profile_open_root(callback: CallbackQuery):
 @router.callback_query(default_state, F.data == CallbackConstants.PROFILE_PAGE_GROUP)
 async def profile_open_group_page(callback: CallbackQuery):
     await callback.answer()
-    user = await User.get(tg_id=callback.from_user.id)
+    user = await User.get(tg_id=str(callback.from_user.id))
     await callback.message.edit_text(
         build_profile_group_page_text(user),
         reply_markup=profile_group_schedule_inline_kb(),
@@ -123,7 +124,7 @@ async def profile_open_group_page(callback: CallbackQuery):
 @router.callback_query(default_state, F.data == CallbackConstants.PROFILE_PAGE_SETTINGS)
 async def profile_open_settings_page(callback: CallbackQuery):
     await callback.answer()
-    user = await User.get(tg_id=callback.from_user.id)
+    user = await User.get(tg_id=str(callback.from_user.id))
     await callback.message.edit_text(
         build_profile_settings_page_text(user),
         reply_markup=profile_settings_inline_kb(
@@ -193,7 +194,7 @@ async def teacher_schedule_repeat(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(default_state, F.data == CallbackConstants.TOGGLE_NOTIFICATIONS)
 async def toggle_notifications(callback: CallbackQuery):
-    user = await User.get(tg_id=callback.from_user.id)
+    user = await User.get(tg_id=str(callback.from_user.id))
     user.notify_by_change = not user.notify_by_change
     await user.save()
 
@@ -212,7 +213,7 @@ async def toggle_notifications(callback: CallbackQuery):
     default_state, F.data == CallbackConstants.TOGGLE_SCHEDULE_LAYOUT
 )
 async def toggle_schedule_layout(callback: CallbackQuery):
-    user = await User.get(tg_id=callback.from_user.id)
+    user = await User.get(tg_id=str(callback.from_user.id))
     current = parse_schedule_layout(user.schedule_layout)
     user.schedule_layout = (
         ScheduleLayout.VERTICAL.value
@@ -238,17 +239,11 @@ async def accept_new_user(
     is_accepted = callback_data.accept
 
     if is_accepted:
-        user = await User.get(tg_id=tg_id)
+        user = await User.get(tg_id=str(tg_id))
         user.is_active = True
         await user.save()
 
-        await callback.bot.send_sticker(
-            chat_id=tg_id,
-            sticker="CAACAgIAAxkBAAICFGnWk6zi3fLhHHqc5gxikWrEcmrKAAKcWwACl2dxSMeEVHqNXTnbOwQ",
-        )
-        await callback.bot.send_message(
-            chat_id=tg_id, text="Тебя добавили. Введи /start"
-        )
+        await notify_user_added(callback.bot, tg_id)
 
     await callback.answer("Успешно")
     await callback.message.edit_reply_markup(callback.inline_message_id, None)
