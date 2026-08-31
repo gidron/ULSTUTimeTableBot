@@ -76,7 +76,7 @@ def extract_week_slots(week_data: dict, week_number: int) -> list[dict]:
 def build_two_week_slots(payload: dict, api_current_week: int) -> list[dict]:
     """Текущая и следующая неделя в одном слепке (стабильный хеш при смене окна API)."""
     try:
-        cur_key, cur_data = TimetableParser.pick_week(
+        _, cur_data = TimetableParser.pick_week(
             payload, "current", api_current_week
         )
     except TimetableParseError:
@@ -85,11 +85,11 @@ def build_two_week_slots(payload: dict, api_current_week: int) -> list[dict]:
         )
         return []
 
-    display_current = int(cur_key) + 1
+    display_current = api_current_week
     slots = extract_week_slots(week_data=cur_data, week_number=display_current)
 
     try:
-        nxt_key, nxt_data = TimetableParser.pick_week(payload, "next", api_current_week)
+        _, nxt_data = TimetableParser.pick_week(payload, "next", api_current_week)
     except TimetableParseError:
         logger.info(
             "Next week unavailable, snapshot limited to current week | display_week=%s",
@@ -97,7 +97,7 @@ def build_two_week_slots(payload: dict, api_current_week: int) -> list[dict]:
         )
         return sort_slots_for_hash(slots)
 
-    display_next = int(nxt_key) + 1
+    display_next = api_current_week + 1
     slots.extend(extract_week_slots(week_data=nxt_data, week_number=display_next))
 
     return sort_slots_for_hash(slots)

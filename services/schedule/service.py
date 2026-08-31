@@ -141,7 +141,11 @@ class ScheduleService:
         )
 
         week_key, week_data = self._pick_week(payload, week_kind, current_week_number)
-        display_week_number = int(week_key) + 1
+        display_week_number = (
+            current_week_number
+            if week_kind == "current"
+            else current_week_number + 1
+        )
 
         logger.debug(
             "Week selected | week_key=%s | display_week_number=%s | week_kind=%s",

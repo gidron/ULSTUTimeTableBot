@@ -56,6 +56,34 @@ def test_pick_week_next_success() -> None:
     assert data == {"days": []}
 
 
+def test_pick_week_current_at_semester_start() -> None:
+    payload = {
+        "response": {
+            "weeks": {
+                "0": {"days": [{"day": 0, "lessons": []}]},
+                "1": {"days": []},
+            }
+        }
+    }
+    key, data = TimetableParser.pick_week(payload, "current", current_week_number=0)
+    assert key == "0"
+    assert "days" in data
+
+
+def test_pick_week_next_at_semester_start() -> None:
+    payload = {
+        "response": {
+            "weeks": {
+                "0": {"days": []},
+                "1": {"days": [{"day": 0, "lessons": []}]},
+            }
+        }
+    }
+    key, data = TimetableParser.pick_week(payload, "next", current_week_number=0)
+    assert key == "1"
+    assert "days" in data
+
+
 def test_pick_week_next_without_current_raises() -> None:
     payload = {"response": {"weeks": {"0": {}}}}
     with pytest.raises(TimetableParseError, match="without current_week_number"):

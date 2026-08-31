@@ -51,7 +51,7 @@ class TimetableParser:
 
         if week_kind == "current":
             if current_week_number is not None:
-                current_key = str(current_week_number - 1)
+                current_key = str(max(0, current_week_number - 1))
                 if current_key in weeks:
                     logger.debug("Selected current week | key=%s", current_key)
                     return current_key, weeks[current_key]
@@ -70,7 +70,7 @@ class TimetableParser:
                     "Cannot determine next week without current_week_number"
                 )
 
-            next_key = str(current_week_number)
+            next_key = "1" if current_week_number == 0 else str(current_week_number)
             if next_key in weeks:
                 logger.debug("Selected next week | key=%s", next_key)
                 return next_key, weeks[next_key]

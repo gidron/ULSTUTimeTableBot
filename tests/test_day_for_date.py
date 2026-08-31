@@ -185,6 +185,61 @@ def test_build_snapshot_next_week_parity() -> None:
     assert "B" in out.slots[0]
 
 
+def _semester_start_weeks_payload() -> dict:
+    monday_lesson_a = {
+        "day": 0,
+        "lessons": [
+            [{"nameOfLesson": "A", "teacher": "T", "room": "1"}],
+        ]
+        + [[] for _ in range(7)],
+    }
+    monday_lesson_b = {
+        "day": 0,
+        "lessons": [
+            [{"nameOfLesson": "B", "teacher": "T", "room": "2"}],
+        ]
+        + [[] for _ in range(7)],
+    }
+    return {
+        "response": {
+            "weeks": {
+                "0": {"days": [monday_lesson_a]},
+                "1": {"days": [monday_lesson_b]},
+            }
+        }
+    }
+
+
+def test_build_snapshot_semester_start_current_week() -> None:
+    from services.schedule.day_for_date import DayScheduleSnapshot
+
+    payload = _semester_start_weeks_payload()
+    out = build_day_schedule_snapshot(
+        date(2026, 8, 31),
+        api_current_week=0,
+        payload=payload,
+        group_name="G",
+        today=date(2026, 9, 1),
+    )
+    assert isinstance(out, DayScheduleSnapshot)
+    assert "A" in out.slots[0]
+
+
+def test_build_snapshot_semester_start_next_week() -> None:
+    from services.schedule.day_for_date import DayScheduleSnapshot
+
+    payload = _semester_start_weeks_payload()
+    out = build_day_schedule_snapshot(
+        date(2026, 9, 7),
+        api_current_week=0,
+        payload=payload,
+        group_name="G",
+        today=date(2026, 9, 1),
+    )
+    assert isinstance(out, DayScheduleSnapshot)
+    assert "B" in out.slots[0]
+
+
 def test_build_snapshot_missing_next_raises() -> None:
     payload = {"response": {"weeks": {"2": {"days": []}}}}
     with pytest.raises(TimetableParseError):

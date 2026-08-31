@@ -61,3 +61,12 @@ def test_attach_dates_to_week_days_sets_dates() -> None:
     assert payload["week_date_range"] == "06.04 - 11.04"
     assert payload["days"][0]["date"] == "06.04"
     assert payload["days"][1]["date"] == "08.04"
+
+
+def test_attach_dates_to_week_days_semester_start_no_offset() -> None:
+    """При current-week=0 даты текущей недели без смещения +7."""
+    payload = {"days": [{"day_index": 0, "slots": []}]}
+    today = date(2026, 9, 1)
+    attach_dates_to_week_days(payload, 0, 0, today=today)
+    assert payload["week_date_range"] == "31.08 - 05.09"
+    assert payload["days"][0]["date"] == "31.08"
